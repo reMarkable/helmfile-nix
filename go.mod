@@ -12,5 +12,5 @@ require (
 require (
 	github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883
 	github.com/ghodss/yaml v1.0.0
-	golang.org/x/sys v0.0.0-20210320140829-1e4c9ba3b0c4 // indirect
+	golang.org/x/sys v0.1.0 // indirect
 )

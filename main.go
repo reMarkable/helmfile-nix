@@ -35,8 +35,8 @@ var (
 func main() {
 	args, err := parseArgs()
 	if err != nil {
+		l.Fatalln("Could not parse args: ", err)
 	}
-	l.Fatalln("Could not parse args: ", err)
 	seen := false
 	for _, v := range args[1:] {
 		if v[0] != '-' {

@@ -11,8 +11,8 @@ import (
 
 	_ "embed"
 
-	"github.com/ghodss/yaml"
 	flags "github.com/jessevdk/go-flags"
+	"sigs.k8s.io/yaml"
 )
 
 //go:embed eval.nix

@@ -12,7 +12,7 @@ import (
 	_ "embed"
 
 	flags "github.com/jessevdk/go-flags"
-	"sigs.k8s.io/yaml"
+	"gopkg.in/yaml.v3"
 )
 
 //go:embed eval.nix

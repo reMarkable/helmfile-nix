@@ -26,15 +26,15 @@ func TestBase(t *testing.T) {
 }
 
 var output = `environments:
-  dev:
-    values: []
+    dev:
+        values: []
 ---
 releases:
-- chart: grafana/grafana
-  name: grafana
+    - chart: grafana/grafana
+      name: grafana
 repositories:
-- name: grafana
-  url: https://grafana.github.io/helm-charts
+    - name: grafana
+      url: https://grafana.github.io/helm-charts
 `
 
 func TestRender(t *testing.T) {

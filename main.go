@@ -18,9 +18,8 @@ import (
 //go:embed eval.nix
 var eval []byte
 
+// We only care about these two, the remaining are passed through unharmed to helmfile
 type Options struct {
-	// Slice of bool will append 'true' each time the option
-	// is encountered (can be set multiple times, like -vvv)
 	File string `short:"f" long:"file" description:"helmfile.nix to use" default:"."`
 	Env  string `short:"e" long:"environment" description:"Environment to deploy to" default:"dev"`
 }
@@ -31,7 +30,7 @@ var (
 	l      = log.Default()
 )
 
-// Start the program
+// Main app flow.
 func main() {
 	args, err := parseArgs()
 	if err != nil {

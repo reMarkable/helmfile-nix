@@ -30,11 +30,8 @@ var output = `environments:
         values: []
 ---
 releases:
-    - chart: grafana/grafana
-      name: grafana
-repositories:
-    - name: grafana
-      url: https://grafana.github.io/helm-charts
+    - chart: ../chart/
+      name: test
 `
 
 func TestRender(t *testing.T) {

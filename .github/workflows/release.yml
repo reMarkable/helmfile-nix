@@ -41,7 +41,7 @@ jobs:
 
       - name: Build
         run: |
-          env GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -v -o nix-helmfile-${{ matrix.os }}-${{ matrix.arch }}
+          env GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -v -o helmfile-nix-${{ matrix.os }}-${{ matrix.arch }}
 
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
@@ -49,6 +49,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./nix-helmfile-${{ matrix.os }}-${{ matrix.arch }}
-          asset_name: nix-helmfile-${{ matrix.os }}-${{ matrix.arch }}
+          asset_path: ./helmfile-nix-${{ matrix.os }}-${{ matrix.arch }}
+          asset_name: helmfile-nix-${{ matrix.os }}-${{ matrix.arch }}
           asset_content_type: application/octet-stream

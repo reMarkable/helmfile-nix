@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -161,12 +162,25 @@ func JSONToYAMLs(j []byte) ([]byte, error) {
 // Render the helmfile using the nix command.
 func renderHelmfile(base string, env string) ([]byte, error) {
 	f, err := writeEvalNix()
-	defer os.Remove(f.Name())
 	if err != nil {
 		log.Fatalf("Could not write eval.nix: %s", err)
 	}
-	expr := fmt.Sprintf("(import %s).render \"%s\" \"%s\"", f.Name(), base, env)
-	cmd := []string{"--extra-experimental-features", "nix-command", "eval", "--json", "--impure", "--expr", expr}
+	defer os.Remove(f.Name())
+	val, err := writeValJson(base)
+	if err != nil {
+		log.Fatalf("Could not write values.json: %s", err)
+	}
+	defer os.Remove(val.Name())
+	expr := fmt.Sprintf("(import %s).render \"%s\" \"%s\" \"%s\"", f.Name(), base, env, val.Name())
+	cmd := []string{
+		"--extra-experimental-features", "nix-command",
+		"--extra-experimental-features", "flakes",
+		"eval",
+		"-I", "nixpkgs=flake:github:nix-community/nixpkgs.lib",
+		"--json",
+		"--impure",
+		"--expr", expr,
+	}
 	eval := exec.Command("nix", cmd...)
 	l.Println("Running nix", strings.Join(cmd, " "))
 	eval.Stderr = os.Stderr
@@ -191,6 +205,42 @@ func writeEvalNix() (*os.File, error) {
 		return nil, err
 	}
 	if _, err := f.Write(eval); err != nil {
+		f.Close()
+		return nil, err
+	}
+	if err := f.Close(); err != nil {
+		return nil, err
+	}
+	return f, nil
+}
+
+func writeValJson(state string) (*os.File, error) {
+	f, err := os.CreateTemp("", "val.*.json")
+	if err != nil {
+		return nil, err
+	}
+	defaultVal, err := os.ReadFile(state + "/env/defaults.yaml")
+	if err != nil {
+		return nil, err
+	}
+	var m map[string]interface{}
+	err = yaml.Unmarshal(defaultVal, &m)
+	if err != nil {
+		return nil, err
+	}
+	envVal, err := os.ReadFile(state + "/env/" + opts.Env + ".yaml")
+	if err != nil {
+		return nil, err
+	}
+	err = yaml.Unmarshal(envVal, &m)
+	if err != nil {
+		return nil, err
+	}
+	envStr, err := json.Marshal(m)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := f.Write(envStr); err != nil {
 		f.Close()
 		return nil, err
 	}

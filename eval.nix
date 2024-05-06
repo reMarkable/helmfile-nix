@@ -1,28 +1,24 @@
-with import <nixpkgs> { };
 with builtins;
 
 rec {
-  yaml2nix =
-    path:
-    let
-      jsonOutputDrv = runCommand "from-yaml" {
-        nativeBuildInputs = [ yq-go ];
-      } ''yq -M -o json . "${path}" > "$out"'';
-    in
-    fromJSON (readFile jsonOutputDrv);
+  # pin nixpkgs.lib
+  lib =
+    (builtins.getFlake "github:nix-community/nixpkgs.lib/4b620020fd73bdd5104e32c702e65b60b6869426").lib;
 
+  # Multiline secret values
   mlVals = val: ''
     {{ "${val}"|fetchSecretValue }}
   '';
+  # expand secret values
   vals = val: ''{{"${val}"|fetchSecretValue}}'';
 
   # render helmfile to object
   render =
-    state: env:
+    state: env: val:
     let
       hf = import /${state}/helmfile.nix;
       var = {
-        values = lib.mergeAttrs (yaml2nix /${state}/env/defaults.yaml) (yaml2nix /${state}/env/${env}.yaml);
+        values = fromJSON (readFile val);
         environment.name = env;
       };
     in

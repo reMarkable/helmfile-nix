@@ -176,7 +176,6 @@ func renderHelmfile(base string, env string) ([]byte, error) {
 		"--extra-experimental-features", "nix-command",
 		"--extra-experimental-features", "flakes",
 		"eval",
-		"-I", "nixpkgs=flake:github:nix-community/nixpkgs.lib",
 		"--json",
 		"--impure",
 		"--expr", expr,
@@ -214,6 +213,8 @@ func writeEvalNix() (*os.File, error) {
 	return f, nil
 }
 
+// Merge the yaml values to a json file for nix.
+// FIXME: This could probably be simplified
 func writeValJson(state string) (*os.File, error) {
 	f, err := os.CreateTemp("", "val.*.json")
 	if err != nil {

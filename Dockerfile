@@ -20,7 +20,7 @@ ADD helmfile-nix /usr/local/bin/helmfile-nix
 
 ENV INSTALL_PATH=/usr/local/bin
 
-RUN apk add --update --no-cache curl git yq && \
+RUN apk add --update --no-cache bash curl git yq && \
   chmod +x ${INSTALL_PATH}/helmfile-nix && \
   # helmfile
   HELMFILE_STRIPPED=$(echo "$HELMFILE_VERSION" | cut -c2-) && \

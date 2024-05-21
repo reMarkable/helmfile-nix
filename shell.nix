@@ -19,6 +19,7 @@ pkgs.mkShell {
   packages = [
     goEnv
     gomod2nix
+    pkgs.docker
     pkgs.helmfile
     pkgs.kubernetes-helm
   ];

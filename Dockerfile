@@ -13,7 +13,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags="-w -s
 # Build the binary.
 RUN go build -mod=readonly -v -o helmfile-nix .
 
-FROM --platform=${BUILDPLATFORM:-linux/amd64} nixos/nix:2.22.0 AS nix
+FROM --platform=${BUILDPLATFORM:-linux/amd64} nixos/nix:2.18.0 AS nix
 
 RUN nix build --extra-experimental-features nix-command --extra-experimental-features flakes nixpkgs#nixStatic
 
@@ -54,9 +54,12 @@ RUN apk add --update --no-cache bash curl git yq && \
 
 VOLUME /nix
 RUN mkdir /etc/nix && \
-  addgroup -g 1000 nixbld && \
-  adduser -u 1000 -G nixbld -D nixbld && \
+  # addgroup -g 1000 nixbld && \
+  # adduser -u 1000 -G nixbld -D nixbld && \
   echo experimental-features = nix-command flakes > /etc/nix/nix.conf && \
-  echo substituters = https://cache.nixos.org >> /etc/nix/nix.conf
+  # echo substituters = https://cache.nixos.org >> /etc/nix/nix.conf
+  echo build-users-group = root >> /etc/nix/nix.conf && \
+  echo sandbox = false >> /etc/nix/nix.conf
+
 
 ENTRYPOINT ["/usr/local/bin/helmfile-nix" ]

@@ -21,8 +21,9 @@ var eval []byte
 
 // We only care about these two, the remaining are passed through unharmed to helmfile
 type Options struct {
-	File string `short:"f" long:"file" description:"helmfile.nix to use" default:"."`
-	Env  string `short:"e" long:"environment" description:"Environment to deploy to" default:"dev"`
+	File      string `short:"f" long:"file" description:"helmfile.nix to use" default:"."`
+	Env       string `short:"e" long:"environment" description:"Environment to deploy to" default:"dev"`
+	ShowTrace []bool `long:"show-trace" description:"Enable stacktraces"`
 }
 
 var (
@@ -179,6 +180,9 @@ func renderHelmfile(base string, env string) ([]byte, error) {
 		"--json",
 		"--impure",
 		"--expr", expr,
+	}
+	if len(opts.ShowTrace) > 0 {
+		cmd = append(cmd, "--show-trace")
 	}
 	eval := exec.Command("nix", cmd...)
 	l.Println("Running nix", strings.Join(cmd, " "))

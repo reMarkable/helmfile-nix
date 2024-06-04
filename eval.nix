@@ -12,6 +12,9 @@ rec {
   # expand secret values
   vals = val: ''{{"${val}"|fetchSecretValue}}'';
 
+  # Escape go template variables
+  escape_var = var: ''{{"${var}"}}'';
+
   # render helmfile to object
   render =
     state: env: val:
@@ -24,6 +27,7 @@ rec {
     in
     hf {
       inherit
+        escape_var
         lib
         var
         vals

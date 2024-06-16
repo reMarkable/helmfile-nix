@@ -22,5 +22,7 @@ pkgs.mkShell {
     pkgs.docker
     pkgs.helmfile
     pkgs.kubernetes-helm
+    pkgs.marp-cli
+    pkgs.markdownlint-cli
   ];
 }

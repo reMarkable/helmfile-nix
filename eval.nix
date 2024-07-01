@@ -10,7 +10,7 @@ rec {
     {{ "${val}"|fetchSecretValue }}
   '';
   # expand secret values
-  vals = val: ''{{"${val}"|fetchSecretValue}}'';
+  vals = val: ''${val}''
 
   # Escape go template variables
   escape_var = var: ''{{"${var}"}}'';

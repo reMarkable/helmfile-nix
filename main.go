@@ -21,9 +21,10 @@ var eval []byte
 
 // We only care about these two, the remaining are passed through unharmed to helmfile
 type Options struct {
-	File      string `short:"f" long:"file" description:"helmfile.nix to use" default:"."`
-	Env       string `short:"e" long:"environment" description:"Environment to deploy to" default:"dev"`
-	ShowTrace []bool `long:"show-trace" description:"Enable stacktraces"`
+	File           string   `short:"f" long:"file" description:"helmfile.nix to use" default:"."`
+	Env            string   `short:"e" long:"environment" description:"Environment to deploy to" default:"dev"`
+	ShowTrace      []bool   `long:"show-trace" description:"Enable stacktraces"`
+	StateValuesSet []string `long:"state-values-set" description:"Set state values"`
 }
 
 var (
@@ -167,7 +168,7 @@ func renderHelmfile(base string, env string) ([]byte, error) {
 		log.Fatalf("Could not write eval.nix: %s", err)
 	}
 	defer os.Remove(f.Name())
-	val, err := writeValJson(base)
+	val, err := writeValJson(base, opts.Env, opts.StateValuesSet)
 	if err != nil {
 		log.Fatalf("Could not write values.json: %s", err)
 	}
@@ -219,32 +220,65 @@ func writeEvalNix() (*os.File, error) {
 
 // Merge the yaml values to a json file for nix.
 // FIXME: This could probably be simplified
-func writeValJson(state string) (*os.File, error) {
+func writeValJson(state string, env string, overrides []string) (*os.File, error) {
 	f, err := os.CreateTemp("", "val.*.json")
 	if err != nil {
 		return nil, err
 	}
+	// Get defaults
 	defaultVal, err := os.ReadFile(state + "/env/defaults.yaml")
 	if err != nil {
 		return nil, err
 	}
-	var m map[string]interface{}
+	var m, n map[string]interface{}
 	err = yaml.Unmarshal(defaultVal, &m)
 	if err != nil {
 		return nil, err
 	}
-	envVal, err := os.ReadFile(state + "/env/" + opts.Env + ".yaml")
+	// Get env specific values
+	envVal, err := os.ReadFile(state + "/env/" + env + ".yaml")
 	if err != nil {
 		return nil, err
 	}
-	err = yaml.Unmarshal(envVal, &m)
+	err = yaml.Unmarshal(envVal, &n)
 	if err != nil {
 		return nil, err
 	}
+	m = mergeMaps(m, n)
+	// Handle state overrides
+	for _, v := range overrides {
+		vals := strings.Split(v, ",")
+		for _, val := range vals {
+			kv := strings.Split(val, "=")
+			if len(kv) != 2 {
+				return nil, fmt.Errorf("invalid state value: %s", val)
+			}
+			if strings.Contains(kv[0], ".") {
+				// Nested value
+				// Split the key into parts
+				mref := m
+				keys := strings.Split(kv[0], ".")
+				for i, key := range keys {
+					if i == len(keys)-1 {
+						mref[key] = kv[1]
+					} else {
+						if _, ok := m[key]; !ok {
+							mref[key] = make(map[string]interface{})
+						}
+						mref = m[key].(map[string]interface{})
+					}
+				}
+			} else {
+				m[kv[0]] = kv[1]
+			}
+		}
+	}
+	// Serialize the values
 	envStr, err := json.Marshal(m)
 	if err != nil {
 		return nil, err
 	}
+	// Write the values
 	if _, err := f.Write(envStr); err != nil {
 		f.Close()
 		return nil, err
@@ -253,4 +287,23 @@ func writeValJson(state string) (*os.File, error) {
 		return nil, err
 	}
 	return f, nil
+}
+
+func mergeMaps(a, b map[string]interface{}) map[string]interface{} {
+	out := make(map[string]interface{}, len(a))
+	for k, v := range a {
+		out[k] = v
+	}
+	for k, v := range b {
+		if v, ok := v.(map[string]interface{}); ok {
+			if bv, ok := out[k]; ok {
+				if bv, ok := bv.(map[string]interface{}); ok {
+					out[k] = mergeMaps(bv, v)
+					continue
+				}
+			}
+		}
+		out[k] = v
+	}
+	return out
 }

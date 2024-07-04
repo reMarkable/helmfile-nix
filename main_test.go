@@ -58,3 +58,20 @@ func TestTemplate(t *testing.T) {
 		t.Error("Output not matched: ::", string(out), "::")
 	}
 }
+
+var vals = `{"bad":"true","bar":"true","foo":{"bad":"true","bar":"false","baz":true,"foo":true}}`
+
+func TestWriteValJson(t *testing.T) {
+	f, err := writeValJson(cwd+"/testData/helm", "test", []string{"foo.bar=false", "bad=true", "foo.bad=true"})
+	if err != nil {
+		t.Error("Failed to write values file: ", err)
+	}
+	defer os.Remove(f.Name())
+	res, err := os.ReadFile(f.Name())
+	if err != nil {
+		t.Error("Failed to read file: ", err)
+	}
+	if string(res) != vals {
+		t.Errorf("Result not as expected:\n%v", diff.LineDiff(string(res), vals))
+	}
+}

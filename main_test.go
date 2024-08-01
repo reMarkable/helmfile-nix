@@ -59,10 +59,10 @@ func TestTemplate(t *testing.T) {
 	}
 }
 
-var vals = `{"bad":"true","bar":"true","foo":{"bad":"true","bar":"false","baz":true,"foo":true}}`
+var vals = `{"bad":123,"bar":"true","foo":{"bad":"hello","bar":"false","baz":true,"foo":true}}`
 
 func TestWriteValJson(t *testing.T) {
-	f, err := writeValJson(cwd+"/testData/helm", "test", []string{"foo.bar=false", "bad=true", "foo.bad=true"})
+	f, err := writeValJson(cwd+"/testData/helm", "test", []string{"foo.bar=false", "bad=123", "foo.bad=hello"})
 	if err != nil {
 		t.Error("Failed to write values file: ", err)
 	}

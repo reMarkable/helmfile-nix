@@ -269,7 +269,12 @@ func writeValJson(state string, env string, overrides []string) (*os.File, error
 					}
 				}
 			} else {
-				m[kv[0]] = kv[1]
+				var val interface{}
+				err := json.Unmarshal([]byte(kv[1]), &val)
+				if err != nil {
+					return nil, fmt.Errorf("failed to marshal %s: %s", kv[1], err)
+				}
+				m[kv[0]] = val
 			}
 		}
 	}

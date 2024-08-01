@@ -1,4 +1,4 @@
-FROM --platform=${BUILDPLATFORM:-linux/amd64} golang:1.22.1-bullseye as builder
+FROM --platform=${BUILDPLATFORM:-linux/amd64} golang:1.22.1-bullseye AS builder
 
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
@@ -15,7 +15,7 @@ RUN go build -mod=readonly -v -o helmfile-nix .
 
 FROM --platform=${BUILDPLATFORM:-linux/amd64} nixos/nix:2.22.0 AS nix
 
-RUN nix build --extra-experimental-features nix-command --extra-experimental-features flakes nixpkgs#nixStatic
+RUN nix-build '<nixpkgs>' -A nixStatic
 
 FROM --platform=${BUILDPLATFORM:-linux/amd64} alpine:3.19@sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b
 ARG TARGETOS

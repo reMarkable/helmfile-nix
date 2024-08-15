@@ -260,7 +260,10 @@ func writeValJson(state string, env string, overrides []string) (*os.File, error
 				keys := strings.Split(kv[0], ".")
 				for i, key := range keys {
 					if i == len(keys)-1 {
-						mref[key] = kv[1]
+						mref[key], err = unmarshalOption(kv[1])
+						if err != nil {
+							return nil, err
+						}
 					} else {
 						if _, ok := m[key]; !ok {
 							mref[key] = make(map[string]interface{})
@@ -269,15 +272,14 @@ func writeValJson(state string, env string, overrides []string) (*os.File, error
 					}
 				}
 			} else {
-				var val interface{}
-				err := json.Unmarshal([]byte(kv[1]), &val)
+				m[kv[0]], err = unmarshalOption(kv[1])
 				if err != nil {
-					return nil, fmt.Errorf("failed to marshal %s: %s", kv[1], err)
+					return nil, err
 				}
-				m[kv[0]] = val
 			}
 		}
 	}
+
 	// Serialize the values
 	envStr, err := json.Marshal(m)
 	if err != nil {
@@ -292,6 +294,15 @@ func writeValJson(state string, env string, overrides []string) (*os.File, error
 		return nil, err
 	}
 	return f, nil
+}
+
+func unmarshalOption(val string) (interface{}, error) {
+	var v interface{}
+	err := yaml.Unmarshal([]byte(val), &v)
+	if err != nil {
+		return nil, err
+	}
+	return v, nil
 }
 
 func mergeMaps(a, b map[string]interface{}) map[string]interface{} {

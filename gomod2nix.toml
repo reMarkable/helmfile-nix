@@ -5,14 +5,14 @@ schema = 3
     version = "v0.0.0-20170406064948-c7f18ee00883"
     hash = "sha256-2XoKB20lN+KGnAb/eVv1NcU/CcSdUPcvVNiXF/uUmOg="
   [mod."github.com/jessevdk/go-flags"]
-    version = "v1.5.0"
-    hash = "sha256-3VCQpnUCZhjmjjdOZ2SKrUbDR5gUkYuNADNWzFhZLX8="
+    version = "v1.6.1"
+    hash = "sha256-Q5WFTgRxYio0+ay3sbQeBPKeJAFvOdiDVkaTVn3hoTA="
   [mod."github.com/sergi/go-diff"]
     version = "v1.3.1"
     hash = "sha256-XLA/BLIPuUU76yikXqIeRSXr7T7A3Uz6I27+mDxGj7w="
   [mod."golang.org/x/sys"]
-    version = "v0.19.0"
-    hash = "sha256-cmuL31TYLJmDm/fDnI2Sn0wB88cpdOHV1+urorsJWx4="
+    version = "v0.27.0"
+    hash = "sha256-BXQcF9RrJ55Pq7Nl67TeFGkgkyuKkQ8hHKN4/L4ggWc="
   [mod."gopkg.in/yaml.v3"]
     version = "v3.0.1"
     hash = "sha256-FqL9TKYJ0XkNwJFnq9j0VvJ5ZUU1RvH/52h/f5bkYAU="

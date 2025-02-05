@@ -1,3 +1,4 @@
 helmfile-nix
 result
 .direnv
+.devenv

@@ -15,4 +15,14 @@ in
     helmfile
     kubernetes-helm
   ];
+  pre-commit.hooks = {
+    gofmt.enable = true;
+    govet.enable = true;
+    golangci-lint.enable = true;
+    gotest.enable = true;
+    commitizen.enable = true;
+  };
+  enterTest = ''
+    nix build .
+  '';
 }

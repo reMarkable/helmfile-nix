@@ -1,11 +1,12 @@
 # helmfile-nix
 
-![tests](https://github.com/reMarkable/helmfile-nix/actions/workflows/test.yml/badge.svg) ![last-commit](https://img.shields.io/github/last-commit/reMarkable/helmfile-nix)
+![tests](https://github.com/reMarkable/helmfile-nix/actions/workflows/test.yml/badge.svg)
+![last-commit](https://img.shields.io/github/last-commit/reMarkable/helmfile-nix)
 
-A small wrapper around [helmfile](https://github.com/helmfile/helmfile/) to allow writing your declarations in the
-[nix language](https://nix.dev/tutorials/nix-language).
-This avoids any YAML or go templating, while still taking advantage of [helmfile's
-features](https://helmfile.readthedocs.io/en/stable/).
+A small wrapper around [helmfile](https://github.com/helmfile/helmfile/) to
+allow writing your declarations in the [nix language](https://nix.dev/tutorials/nix-language).
+This avoids any YAML or go templating, while still taking advantage of
+[helmfile's features](https://helmfile.readthedocs.io/en/stable/).
 
 ## Basic usage
 
@@ -13,7 +14,8 @@ features](https://helmfile.readthedocs.io/en/stable/).
 helmfile-nix render
 ```
 
-Looks for `helmfile.nix` in the current directory and renders it to a `helmfile.yaml` to stdout.
+Looks for `helmfile.nix` in the current directory and renders it to a
+`helmfile.yaml` to stdout.
 
 ```sh
 helmfile-nix -f foo/helmfile.nix -e stage diff
@@ -22,6 +24,8 @@ helmfile-nix -f foo/helmfile.nix -e stage diff
 Renders the helmfile in stage and passes it on to helmfile diff.
 
 For convenience we default to 'dev' if env is not set.
+
+- You can also check out this [presentation](./docs/presentation.html) given to the [Oslo NixOS User Group](https://www.meetup.com/oslo-nixos-user-group/) for a quick overview.
 
 ## Structure of your `helmfile.nix`
 
@@ -41,8 +45,9 @@ For convenience we default to 'dev' if env is not set.
 ]
 ```
 
-Note that we expect an array of YAML documents, typically the first document is the environment
-configuration and any defaults. The follow optional attributes can be imported in your helmfile.nix:
+Note that we expect an array of YAML documents, typically the first document is the
+environment configuration and any defaults. The follow optional attributes can
+be imported in your helmfile.nix:
 
 | Attribute  | Description                                                                        |
 | ---------- | ---------------------------------------------------------------------------------- |

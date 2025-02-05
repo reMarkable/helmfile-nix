@@ -30,24 +30,14 @@
         packages.default = callPackage ./. {
           inherit (gomod2nix.legacyPackages.${system}) buildGoApplication;
         };
+        packages.devenv-up = self.devShells.${system}.default.config.procfileScript;
+        packages.devenv-test = self.devShells.${system}.default.config.test;
         devShells.default = devenv.lib.mkShell {
           inherit inputs pkgs;
           modules = [
-            (
-              { pkgs, ... }:
-              let
-                goEnv = gomod2nix.legacyPackages.${system}.mkGoEnv { pwd = ./.; };
-              in
-              {
-                packages = with pkgs; [
-                  goEnv
-                  gomod2nix.legacyPackages.${system}.gomod2nix
-                  docker
-                  helmfile
-                  kubernetes-helm
-                ];
-              }
-            )
+            (import ./devenv.nix {
+              inherit inputs pkgs system;
+            })
           ];
         };
       }

@@ -228,7 +228,11 @@ func writeValJson(state string, env string, overrides []string) (*os.File, error
 	// Get defaults
 	defaultVal, err := os.ReadFile(state + "/env/defaults.yaml")
 	if err != nil {
-		return nil, err
+		if os.IsNotExist(err) {
+			defaultVal = []byte("{}")
+		} else {
+			return nil, err
+		}
 	}
 	var m, n map[string]interface{}
 	err = yaml.Unmarshal(defaultVal, &m)
@@ -238,7 +242,11 @@ func writeValJson(state string, env string, overrides []string) (*os.File, error
 	// Get env specific values
 	envVal, err := os.ReadFile(state + "/env/" + env + ".yaml")
 	if err != nil {
-		return nil, err
+		if os.IsNotExist(err) {
+			envVal = []byte("{}")
+		} else {
+			return nil, err
+		}
 	}
 	err = yaml.Unmarshal(envVal, &n)
 	if err != nil {

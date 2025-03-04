@@ -13,9 +13,11 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags="-w -s
 # Build the binary.
 RUN go build -mod=readonly -v -o helmfile-nix .
 
-FROM --platform=${BUILDPLATFORM:-linux/amd64} nixos/nix:2.22.0 AS nix
+FROM --platform=${BUILDPLATFORM:-linux/amd64} ghcr.io/lix-project/lix:latest  AS nix
 
-RUN nix-build '<nixpkgs>' -A nixStatic
+RUN nix-build '<nixpkgs>' -A lixStatic
+RUN chmod 755 result/bin/nix && nix-shell -p gcc --run 'strip result/bin/nix'
+
 
 FROM --platform=${BUILDPLATFORM:-linux/amd64} alpine:3.19@sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b
 ARG TARGETOS
@@ -31,7 +33,7 @@ ARG HELM_DIFF_VERSION=v3.9.5
 # renovate: datasource=github-releases depName=kubernetes-sigs/kustomize
 ARG KUSTOMIZE_VERSION=5.3.0
 
-COPY --from=nix ./result/ /
+COPY --from=nix ./result/bin/nix /bin
 
 COPY --from=builder /app/helmfile-nix /usr/local/bin/helmfile-nix
 

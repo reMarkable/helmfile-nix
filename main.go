@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	_ "embed"
@@ -52,6 +53,7 @@ func main() {
 		callHelmfile([]byte(""), []string{}, ".", opts.Env)
 		os.Exit(1)
 	}
+
 	l.Printf("Args: %v\n", args)
 	l.Printf("file: %v env: %v\n", opts.Env, opts.File)
 
@@ -59,14 +61,17 @@ func main() {
 	if err != nil {
 		l.Fatalln("Could not find helmfile.nix: ", err)
 	}
+
 	hf, err := renderHelmfile(base, opts.Env)
 	if err != nil {
 		l.Fatalln("Failed to render helmfile: ", err)
 	}
+
 	if args[len(args)-1] == "render" {
 		fmt.Println(string(hf))
 		os.Exit(0)
 	}
+
 	callHelmfile(hf, args[1:], base, opts.Env)
 }
 
@@ -77,6 +82,7 @@ func callHelmfile(hf []byte, args []string, base string, env string) {
 	if err != nil {
 		log.Fatalf("Could not change directory to %s: %s\n", base, err)
 	}
+
 	finalArgs := append(baseArgs, args...)
 	cmd := exec.Command("helmfile", finalArgs...)
 	cmd.Stdin = strings.NewReader(string(hf))
@@ -94,6 +100,7 @@ func findBase() (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	fileInfo, err := os.Stat(path)
 	if err != nil {
 		return "", err
@@ -101,7 +108,6 @@ func findBase() (string, error) {
 
 	// Check if the file is a directory
 	if fileInfo.IsDir() {
-
 		// Read the contents of the directory
 		files, err := os.ReadDir(path)
 		if err != nil {
@@ -116,10 +122,44 @@ func findBase() (string, error) {
 		}
 		l.Fatalln("No helmfile.nix found in: ", path)
 	}
+
 	if filepath.Base(path) != "helmfile.nix" {
 		l.Fatalln("Trying to use a file that is not helmfile.nix: ", path)
 	}
+
 	return filepath.Dir(path), nil
+}
+
+// Extract optional bases list from helmfile.nix
+func extractBases(base string) ([]string, error) {
+	hf := filepath.Join(base, "helmfile.nix")
+	// Read the file
+	data, err := os.ReadFile(hf)
+	if err != nil {
+		return nil, err
+	}
+
+	// Find the bases
+	pattern := `\[\s*{\s*bases\s*=\s*\[\s*(["\./\w\s]+)\s*]\s*;\s*}`
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil, err
+	}
+
+	matches := re.FindStringSubmatch(string(data))
+	if len(matches) != 2 {
+		return nil, nil
+	}
+
+	matchedGroup := matches[1]
+	parsedBases := strings.Split(strings.TrimSpace(matchedGroup), "\n")
+
+	// Remove quotes
+	for i, v := range parsedBases {
+		parsedBases[i] = strings.Trim(v, "\" ")
+	}
+
+	return parsedBases, nil
 }
 
 // Parse the command line arguments, return remaining arguments.
@@ -128,6 +168,7 @@ func parseArgs() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return args, nil
 }
 
@@ -158,6 +199,7 @@ func JSONToYAMLs(j []byte) ([]byte, error) {
 		y = append(y, res...)
 
 	}
+
 	return y, nil
 }
 
@@ -167,12 +209,29 @@ func renderHelmfile(base string, env string) ([]byte, error) {
 	if err != nil {
 		log.Fatalf("Could not write eval.nix: %s", err)
 	}
+
 	defer os.Remove(f.Name())
 	val, err := writeValJson(base, opts.Env, opts.StateValuesSet)
 	if err != nil {
 		log.Fatalf("Could not write values.json: %s", err)
 	}
+
 	defer os.Remove(val.Name())
+	out, err := evaluateNixExpression(f, base, env, val)
+	if err != nil {
+		l.Fatalf("error: %s\n%s", err, out.String())
+	}
+
+	json := out.Bytes()
+	yaml, err := JSONToYAMLs(json)
+	if err != nil {
+		l.Fatalf("Failed to convert JSON to YAML: %s\n%s", err, json)
+	}
+
+	return yaml, nil
+}
+
+func evaluateNixExpression(f *os.File, base string, env string, val *os.File) (bytes.Buffer, error) {
 	expr := fmt.Sprintf("(import %s).render \"%s\" \"%s\" \"%s\"", f.Name(), base, env, val.Name())
 	cmd := []string{
 		"--extra-experimental-features", "nix-command",
@@ -190,16 +249,9 @@ func renderHelmfile(base string, env string) ([]byte, error) {
 	eval.Stderr = os.Stderr
 	var out bytes.Buffer
 	eval.Stdout = &out
-	err = eval.Run()
-	if err != nil {
-		l.Fatalf("error: %s\n%s", err, out.String())
-	}
-	json := out.Bytes()
-	yaml, err := JSONToYAMLs(json)
-	if err != nil {
-		l.Fatalf("Failed to convert JSON to YAML: %s\n%s", err, json)
-	}
-	return yaml, nil
+	err := eval.Run()
+
+	return out, err
 }
 
 // Write the eval.nix to a temporary file. Must be removed after use.
@@ -208,14 +260,40 @@ func writeEvalNix() (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if _, err := f.Write(eval); err != nil {
 		f.Close()
 		return nil, err
 	}
+
 	if err := f.Close(); err != nil {
 		return nil, err
 	}
+
 	return f, nil
+}
+
+// parse yaml file in path, relative to base path
+func yamlToMap(base string, path string) (map[string]any, error) {
+	var values map[string]any
+
+	fullPath := filepath.Join(base, path)
+	valBytes, err := os.ReadFile(fullPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			valBytes = []byte("{}")
+		} else {
+			return nil, err
+		}
+	}
+
+	var m map[string]any
+	err = yaml.Unmarshal(valBytes, &values)
+	if err != nil {
+		return nil, err
+	}
+
+	return m, nil
 }
 
 // Merge the yaml values to a json file for nix.
@@ -225,34 +303,25 @@ func writeValJson(state string, env string, overrides []string) (*os.File, error
 	if err != nil {
 		return nil, err
 	}
-	// Get defaults
-	defaultVal, err := os.ReadFile(state + "/env/defaults.yaml")
+
+	var values map[string]any
+
+	baseFilePaths, err := extractBases(state)
 	if err != nil {
-		if os.IsNotExist(err) {
-			defaultVal = []byte("{}")
-		} else {
-			return nil, err
-		}
-	}
-	var m, n map[string]interface{}
-	err = yaml.Unmarshal(defaultVal, &m)
-	if err != nil {
+		log.Fatalf("Could not extract bases from state %s: %s", state, err)
 		return nil, err
 	}
-	// Get env specific values
-	envVal, err := os.ReadFile(state + "/env/" + env + ".yaml")
-	if err != nil {
-		if os.IsNotExist(err) {
-			envVal = []byte("{}")
-		} else {
-			return nil, err
+	log.Printf("baseFilePaths: %s", baseFilePaths)
+	for _, path := range baseFilePaths {
+		baseMap, err := yamlToMap(state, path)
+		// TODO: if baseMap has a key environments.<env>, read value files and actual values (check if string or map) and or merge it into values
+		l.Printf("baseMap: %v\n", baseMap)
+		freshValues := map[string]any{}
+		if err == nil {
+			values = mergeMaps(values, freshValues)
 		}
 	}
-	err = yaml.Unmarshal(envVal, &n)
-	if err != nil {
-		return nil, err
-	}
-	m = mergeMaps(m, n)
+
 	// Handle state overrides
 	for _, v := range overrides {
 		vals := strings.Split(v, ",")
@@ -261,10 +330,11 @@ func writeValJson(state string, env string, overrides []string) (*os.File, error
 			if len(kv) != 2 {
 				return nil, fmt.Errorf("invalid state value: %s", val)
 			}
+
 			if strings.Contains(kv[0], ".") {
 				// Nested value
 				// Split the key into parts
-				mref := m
+				mref := values
 				keys := strings.Split(kv[0], ".")
 				for i, key := range keys {
 					if i == len(keys)-1 {
@@ -272,15 +342,16 @@ func writeValJson(state string, env string, overrides []string) (*os.File, error
 						if err != nil {
 							return nil, err
 						}
+
 					} else {
-						if _, ok := m[key]; !ok {
+						if _, ok := values[key]; !ok {
 							mref[key] = make(map[string]interface{})
 						}
-						mref = m[key].(map[string]interface{})
+						mref = values[key].(map[string]interface{})
 					}
 				}
 			} else {
-				m[kv[0]], err = unmarshalOption(kv[1])
+				values[kv[0]], err = unmarshalOption(kv[1])
 				if err != nil {
 					return nil, err
 				}
@@ -289,18 +360,21 @@ func writeValJson(state string, env string, overrides []string) (*os.File, error
 	}
 
 	// Serialize the values
-	envStr, err := json.Marshal(m)
+	envStr, err := json.Marshal(values)
 	if err != nil {
 		return nil, err
 	}
+
 	// Write the values
 	if _, err := f.Write(envStr); err != nil {
 		f.Close()
 		return nil, err
 	}
+
 	if err := f.Close(); err != nil {
 		return nil, err
 	}
+
 	return f, nil
 }
 
@@ -310,6 +384,7 @@ func unmarshalOption(val string) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return v, nil
 }
 

@@ -1,0 +1,4 @@
+helmDefaults:
+  suppressOutputLineRegex:
+    - "helm.sh/chart"
+    - "app.kubernetes.io/version"

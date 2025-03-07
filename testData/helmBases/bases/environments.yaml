@@ -1,0 +1,6 @@
+environments:
+  dev:
+    values:
+      - ../shared_values.yaml
+      - env/defaults.yaml
+      - env/dev.yaml

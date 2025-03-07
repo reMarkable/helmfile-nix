@@ -3,6 +3,7 @@ package main
 import (
 	"io"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 
@@ -12,9 +13,9 @@ import (
 var cwd, _ = os.Getwd()
 
 func TestBase(t *testing.T) {
-	inputs := []string{"testData/helm", "testData/helm/helmfile.nix", "./testData/helm/helmfile.nix", cwd + "/testData/helm/helmfile.nix", "testData/helm/helmfile.nix"}
-	for _, input := range inputs {
-		opts = Options{File: input, Env: "test"}
+	filePaths := []string{"testData/helm", "testData/helm/helmfile.nix", "./testData/helm/helmfile.nix", cwd + "/testData/helm/helmfile.nix", "testData/helm/helmfile.nix"}
+	for _, filePath := range filePaths {
+		opts = Options{File: filePath, Env: "test"}
 		base, err := findBase()
 		if err != nil {
 			t.Error("full path failed:", err)
@@ -73,5 +74,37 @@ func TestWriteValJson(t *testing.T) {
 	}
 	if string(res) != vals {
 		t.Errorf("Result not as expected:\n%v", diff.LineDiff(string(res), vals))
+	}
+}
+
+func TestExtractBases(t *testing.T) {
+	want := []string{"../bases/environments.yaml", "../bases/defaults.yaml"}
+	base := cwd + "/testData/helmBases/project"
+	got, err := extractBases(base)
+	if err != nil {
+		t.Error("Failed to extract bases: ", err)
+	}
+	if len(got) != len(want) {
+		t.Error("Base count not matched: ", len(got), " != ", len(want))
+	}
+
+	if !slices.Equal(got, want) {
+		t.Errorf("Result not as expected:\n%v", diff.LineDiff(strings.Join(want, "\n"), strings.Join(got, "\n")))
+	}
+}
+
+func TestBasesValuesAreUsed(t *testing.T) {
+	want := `{"project": "example-project"}`
+	f, err := writeValJson(cwd+"/testData/helmBases/project", "dev", []string{})
+	if err != nil {
+		t.Error("Failed to write values file: ", err)
+	}
+	defer os.Remove(f.Name())
+	res, err := os.ReadFile(f.Name())
+	if err != nil {
+		t.Error("Failed to read file: ", err)
+	}
+	if string(res) != want {
+		t.Errorf("Result not as expected:\n%v", diff.LineDiff(string(res), want))
 	}
 }

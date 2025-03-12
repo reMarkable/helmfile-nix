@@ -1,6 +1,5 @@
-FROM --platform=${BUILDPLATFORM:-linux/amd64} golang:1.22.1-bullseye AS builder
+FROM  golang:1.22.1-bullseye AS builder
 
-ARG TARGETPLATFORM
 ARG BUILDPLATFORM
 ARG TARGETOS
 ARG TARGETARCH
@@ -13,13 +12,13 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags="-w -s
 # Build the binary.
 RUN go build -mod=readonly -v -o helmfile-nix .
 
-FROM --platform=${BUILDPLATFORM:-linux/amd64} ghcr.io/lix-project/lix:latest  AS nix
+FROM  ghcr.io/lix-project/lix:latest  AS nix
 
 RUN nix-build '<nixpkgs>' -A lixStatic
 RUN chmod 755 result/bin/nix && nix-shell -p gcc --run 'strip result/bin/nix'
 
 
-FROM --platform=${BUILDPLATFORM:-linux/amd64} alpine:3.19@sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b
+FROM alpine:3.19@sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b
 ARG TARGETOS
 ARG TARGETARCH
 

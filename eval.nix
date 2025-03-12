@@ -33,5 +33,6 @@ rec {
         vals
         mlVals
         ;
+      val = var.values;
     };
 }

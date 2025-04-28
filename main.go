@@ -169,7 +169,7 @@ func parseArgs() ([]string, error) {
 // Convert a JSON list to YAML documents.
 func JSONToYAMLs(j []byte) ([]byte, error) {
 	// Convert the JSON to a list of object.
-	var jsonObj []interface{}
+	var jsonObj []any
 	// We are using yaml.Unmarshal here (instead of json.Unmarshal) because the
 	// Go JSON library doesn't try to pick the right number type (int, float,
 	// etc.) when unmarshalling to interface{}, it just picks float64
@@ -284,7 +284,7 @@ func writeValJson(state string, env string, overrides []string) (*os.File, error
 			return nil, err
 		}
 	}
-	var m, n map[string]interface{}
+	var m, n map[string]any
 	err = yaml.Unmarshal(defaultVal, &m)
 	if err != nil {
 		return nil, err
@@ -324,9 +324,9 @@ func writeValJson(state string, env string, overrides []string) (*os.File, error
 						}
 					} else {
 						if _, ok := m[key]; !ok {
-							mref[key] = make(map[string]interface{})
+							mref[key] = make(map[string]any)
 						}
-						mref = m[key].(map[string]interface{})
+						mref = m[key].(map[string]any)
 					}
 				}
 			} else {
@@ -374,8 +374,8 @@ func writeHelmfileYaml(fileName, base string, hf []byte) (*os.File, error) {
 	return f, nil
 }
 
-func unmarshalOption(val string) (interface{}, error) {
-	var v interface{}
+func unmarshalOption(val string) (any, error) {
+	var v any
 	err := yaml.Unmarshal([]byte(val), &v)
 	if err != nil {
 		return nil, err
@@ -383,15 +383,15 @@ func unmarshalOption(val string) (interface{}, error) {
 	return v, nil
 }
 
-func mergeMaps(a, b map[string]interface{}) map[string]interface{} {
-	out := make(map[string]interface{}, len(a))
+func mergeMaps(a, b map[string]any) map[string]any {
+	out := make(map[string]any, len(a))
 	for k, v := range a {
 		out[k] = v
 	}
 	for k, v := range b {
-		if v, ok := v.(map[string]interface{}); ok {
+		if v, ok := v.(map[string]any); ok {
 			if bv, ok := out[k]; ok {
-				if bv, ok := bv.(map[string]interface{}); ok {
+				if bv, ok := bv.(map[string]any); ok {
 					out[k] = mergeMaps(bv, v)
 					continue
 				}

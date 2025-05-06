@@ -11,16 +11,19 @@ import (
 
 var cwd, _ = os.Getwd()
 
-func TestBase(t *testing.T) {
+func TestPathAndBase(t *testing.T) {
 	inputs := []string{"testData/helm", "testData/helm/helmfile.nix", "./testData/helm/helmfile.nix", cwd + "/testData/helm/helmfile.nix", "testData/helm/helmfile.nix"}
 	for _, input := range inputs {
 		opts = Options{File: input, Env: "test"}
-		base, err := findBase()
+		hfPath, base, err := findFileNameAndBase()
 		if err != nil {
 			t.Error("full path failed:", err)
 		}
 		if base != cwd+"/testData/helm" {
 			t.Error("Base not matched: ", base, " != ", cwd+"testData/helm")
+		}
+		if hfPath != "helmfile.nix" {
+			t.Error("Path not matched: ", hfPath, " != helmfile.nix")
 		}
 	}
 }
@@ -33,9 +36,30 @@ releases:
     - chart: ../chart/
       name: test
 `
+var outputTemplated = `environments:
+    dev:
+        values: []
+---
+releases:
+    - chart: ../chart/
+      hooks:
+        - args:
+            - --environment
+            - '{{"{{ .Environment | toJson }}"}}'
+            - --release
+            - '{{"{{ .Release | toJson }}"}}'
+            - --event
+            - '{{"{{ .Event | toJson }}"}}'
+          command: echo
+          events:
+            - presync
+            - prepare
+          showlogs: true
+      name: test
+`
 
 func TestRender(t *testing.T) {
-	hf, err := renderHelmfile(cwd+"/testData/helm", "dev")
+	hf, err := renderHelmfile("helmfile.nix", cwd+"/testData/helm", "dev")
 	if err != nil {
 		t.Error("Failed to parse helmfile: ", err)
 	}
@@ -44,16 +68,33 @@ func TestRender(t *testing.T) {
 	}
 }
 
+func TestRenderTemplated(t *testing.T) {
+	hf, err := renderHelmfile("helmfile.gotmpl.nix", cwd+"/testData/helm-templated", "dev")
+	if err != nil {
+		t.Error("Failed to parse helmfile: ", err)
+	}
+	if string(hf) != outputTemplated {
+		t.Errorf("Result not as expected:\n%v", diff.LineDiff(string(hf), outputTemplated))
+	}
+}
+
 func TestTemplate(t *testing.T) {
 	storeStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
-	callHelmfile([]byte(output), []string{"lint"}, cwd+"/testData/helm", "dev")
+	hfFile, _ := writeHelmfileYaml("helmfile.nix", cwd+"/testData/helm", []byte(output))
+	defer os.Remove(hfFile.Name())
+
+	err := callHelmfile(hfFile.Name(), []string{"lint"}, cwd+"/testData/helm", "dev")
+	if err != nil {
+		t.Error("Failed to call helmfile: ", err)
+	}
+
 	w.Close()
 	out, _ := io.ReadAll(r)
 	os.Stdout = storeStdout
 
-	// restore the stdout
+	// restore stdout
 	if !strings.Contains(string(out), "1 chart(s) linted, 0 chart(s) failed\n") {
 		t.Error("Output not matched: ::", string(out), "::")
 	}

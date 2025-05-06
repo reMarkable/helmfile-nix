@@ -17,9 +17,9 @@ rec {
 
   # render helmfile to object
   render =
-    state: env: val:
+    file: state: env: val:
     let
-      hf = import /${state}/helmfile.nix;
+      hf = import "/${state}/${file}";
       var = {
         values = fromJSON (readFile val);
         environment.name = env;

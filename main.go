@@ -1,25 +1,28 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	_ "embed"
 
 	flags "github.com/jessevdk/go-flags"
+	"github.com/reMarkable/cloud-shared-services/helmfile-nix/pkgs/nixchart"
+	"github.com/reMarkable/cloud-shared-services/helmfile-nix/pkgs/nixeval"
+	"github.com/reMarkable/cloud-shared-services/helmfile-nix/pkgs/utils"
 	"gopkg.in/yaml.v3"
 )
 
 //go:embed eval.nix
 var eval []byte
 
-// We only care about these two, the remaining are passed through unharmed to helmfile
+// We only care about these settings, the remaining are passed through unharmed to helmfile
 type Options struct {
 	File           string   `short:"f" long:"file" description:"helmfile.nix to use" default:"."`
 	Env            string   `short:"e" long:"environment" description:"Environment to deploy to" default:"dev"`
@@ -99,7 +102,7 @@ func findBase() (string, error) {
 		return "", err
 	}
 
-	// Check if the file is a directory
+	// If it's a directory, we need to find the helmfile
 	if fileInfo.IsDir() {
 
 		// Read the contents of the directory
@@ -140,14 +143,23 @@ func JSONToYAMLs(j []byte) ([]byte, error) {
 	// etc.) when unmarshalling to interface{}, it just picks float64
 	// universally. go-yaml does go through the effort of picking the right
 	// number type, so we can preserve number type throughout this process.
-	err := yaml.Unmarshal(j, &jsonObj)
-	if err != nil {
+	if err := yaml.Unmarshal(j, &jsonObj); err != nil {
 		return nil, err
 	}
 
 	var y []byte
 	// Marshal this object into YAML.
 	for _, v := range jsonObj {
+		if reflect.TypeOf(v).Kind() == reflect.Map {
+			// Check if map has a list of releases
+			if _, ok := v.(map[string]any)["releases"]; ok {
+				var err error
+				v, err = nixchart.RenderCharts(v.(map[string]any))
+				if err != nil {
+					log.Fatalf("Failed to render charts: %s", err)
+				}
+			}
+		}
 		res, err := yaml.Marshal(v)
 		if err != nil {
 			return nil, err
@@ -174,27 +186,15 @@ func renderHelmfile(base string, env string) ([]byte, error) {
 	}
 	defer os.Remove(val.Name())
 	expr := fmt.Sprintf("(import %s).render \"%s\" \"%s\" \"%s\"", f.Name(), base, env, val.Name())
-	cmd := []string{
-		"--extra-experimental-features", "nix-command",
-		"--extra-experimental-features", "flakes",
-		"eval",
-		"--json",
-		"--impure",
-		"--expr", expr,
-	}
+	ne := nixeval.NewNixEval(expr)
+	cmd := ne.Args()
 	if len(opts.ShowTrace) > 0 {
 		cmd = append(cmd, "--show-trace")
 	}
-	eval := exec.Command("nix", cmd...)
-	l.Println("Running nix", strings.Join(cmd, " "))
-	eval.Stderr = os.Stderr
-	var out bytes.Buffer
-	eval.Stdout = &out
-	err = eval.Run()
+	json, err := ne.Eval(cmd)
 	if err != nil {
-		l.Fatalf("error: %s\n%s", err, out.String())
+		l.Fatalf("Failed to eval nix: %s\n%s", err, json)
 	}
-	json := out.Bytes()
 	yaml, err := JSONToYAMLs(json)
 	if err != nil {
 		l.Fatalf("Failed to convert JSON to YAML: %s\n%s", err, json)
@@ -252,7 +252,7 @@ func writeValJson(state string, env string, overrides []string) (*os.File, error
 	if err != nil {
 		return nil, err
 	}
-	m = mergeMaps(m, n)
+	m = utils.MergeMaps(m, n)
 	// Handle state overrides
 	for _, v := range overrides {
 		vals := strings.Split(v, ",")
@@ -268,7 +268,7 @@ func writeValJson(state string, env string, overrides []string) (*os.File, error
 				keys := strings.Split(kv[0], ".")
 				for i, key := range keys {
 					if i == len(keys)-1 {
-						mref[key], err = unmarshalOption(kv[1])
+						mref[key], err = utils.UnmarshalOption(kv[1])
 						if err != nil {
 							return nil, err
 						}
@@ -280,7 +280,7 @@ func writeValJson(state string, env string, overrides []string) (*os.File, error
 					}
 				}
 			} else {
-				m[kv[0]], err = unmarshalOption(kv[1])
+				m[kv[0]], err = utils.UnmarshalOption(kv[1])
 				if err != nil {
 					return nil, err
 				}
@@ -302,32 +302,4 @@ func writeValJson(state string, env string, overrides []string) (*os.File, error
 		return nil, err
 	}
 	return f, nil
-}
-
-func unmarshalOption(val string) (any, error) {
-	var v any
-	err := yaml.Unmarshal([]byte(val), &v)
-	if err != nil {
-		return nil, err
-	}
-	return v, nil
-}
-
-func mergeMaps(a, b map[string]any) map[string]any {
-	out := make(map[string]any, len(a))
-	for k, v := range a {
-		out[k] = v
-	}
-	for k, v := range b {
-		if v, ok := v.(map[string]any); ok {
-			if bv, ok := out[k]; ok {
-				if bv, ok := bv.(map[string]any); ok {
-					out[k] = mergeMaps(bv, v)
-					continue
-				}
-			}
-		}
-		out[k] = v
-	}
-	return out
 }

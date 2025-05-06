@@ -13,6 +13,10 @@
         name = "test";
         chart = "../chart/";
       }
+      {
+        name = "testNix";
+        nixChart = "../chart/";
+      }
     ];
   }
 ]

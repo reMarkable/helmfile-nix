@@ -1,6 +1,6 @@
-module github.com/reMarkable/cloud-shared-services/helmfile-nix
+module github.com/reMarkable/helmfile-nix
 
-go 1.22.1
+go 1.24.3
 
 require (
 	github.com/jessevdk/go-flags v1.6.1

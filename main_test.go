@@ -11,23 +11,6 @@ import (
 
 var cwd, _ = os.Getwd()
 
-func TestPathAndBase(t *testing.T) {
-	inputs := []string{"testData/helm", "testData/helm/helmfile.nix", "./testData/helm/helmfile.nix", cwd + "/testData/helm/helmfile.nix", "testData/helm/helmfile.nix"}
-	for _, input := range inputs {
-		opts = Options{File: input, Env: "test"}
-		hfPath, base, err := findFileNameAndBase()
-		if err != nil {
-			t.Error("full path failed:", err)
-		}
-		if base != cwd+"/testData/helm" {
-			t.Error("Base not matched: ", base, " != ", cwd+"testData/helm")
-		}
-		if hfPath != "helmfile.nix" {
-			t.Error("Path not matched: ", hfPath, " != helmfile.nix")
-		}
-	}
-}
-
 var output = `environments:
     dev:
         values: []
@@ -110,7 +93,7 @@ func TestTemplate(t *testing.T) {
 var vals = `{"bad":123,"bar":"true","foo":{"bad":"hello","bar":false,"baz":true,"foo":true}}`
 
 func TestWriteValJson(t *testing.T) {
-	f, err := writeValJson(cwd+"/testData/helm", "test", []string{"foo.bar=false", "bad=123", "foo.bad=hello"})
+	f, err := writeValJSON(cwd+"/testData/helm", "test", []string{"foo.bar=false", "bad=123", "foo.bad=hello"})
 	if err != nil {
 		t.Error("Failed to write values file: ", err)
 	}

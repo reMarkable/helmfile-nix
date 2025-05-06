@@ -1,25 +1,30 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	_ "embed"
 
 	flags "github.com/jessevdk/go-flags"
-	"gopkg.in/yaml.v3"
+	"github.com/reMarkable/helmfile-nix/pkgs/nixchart"
+	"github.com/reMarkable/helmfile-nix/pkgs/nixeval"
+	"github.com/reMarkable/helmfile-nix/pkgs/utils"
 )
 
 //go:embed eval.nix
 var eval string
 
-// We only care about these two, the remaining are passed through unharmed to helmfile
+// List of temporary directories that need to be cleaned up after use.
+var cleanup []string
+
+// Options - We only care about these settings, the remaining are passed through unharmed to helmfile
 type Options struct {
 	File           string   `short:"f" long:"file" description:"helmfile.nix to use" default:"."`
 	Env            string   `short:"e" long:"environment" description:"Environment to deploy to" default:"dev"`
@@ -66,9 +71,9 @@ func main() {
 	l.Printf("Args: %v\n", args)
 	l.Printf("file: %v env: %v\n", opts.Env, opts.File)
 
-	hfFileName, base, err := findFileNameAndBase()
+	hfFileName, base, err := utils.FindFileNameAndBase(opts.File, []string{"helmfile.nix", "helmfile.gotmpl.nix"})
 	if err != nil {
-		l.Fatalln("Could not find helmfile.nix or helmfile.gotmpl.nix: ", err)
+		l.Fatalln("Could not find helmfile: ", err)
 	}
 	hfContent, err := renderHelmfile(hfFileName, base, opts.Env)
 	if err != nil {
@@ -93,6 +98,7 @@ func main() {
 
 	callErr := callHelmfile(hfFile.Name(), args[1:], base, opts.Env)
 
+	nixchart.CleanupCharts(cleanup)
 	if callErr != nil {
 		log.Println("Running helmfile failed: ", err)
 		retcode = 1
@@ -118,45 +124,6 @@ func callHelmfile(hf string, args []string, base string, env string) error {
 	return cmd.Run()
 }
 
-// Find the filename and base directory of the helmfile.nix
-func findFileNameAndBase() (string, string, error) {
-	path, err := filepath.Abs(opts.File)
-	if err != nil {
-		return "", "", err
-	}
-
-	fileInfo, err := os.Stat(path)
-	if err != nil {
-		return "", "", err
-	}
-
-	// Check if the file is a directory
-	if fileInfo.IsDir() {
-		// Read the contents of the directory
-		files, err := os.ReadDir(path)
-		if err != nil {
-			return "", "", err
-		}
-
-		// Check if the desired file exists in the directory
-		for _, file := range files {
-			if file.Name() == "helmfile.nix" {
-				return "helmfile.nix", path, nil
-			} else if file.Name() == "helmfile.gotmpl.nix" {
-				return "helmfile.gotmpl.nix", path, nil
-			}
-		}
-
-		l.Fatalln("No helmfile.nix or helmfile.gotmpl.nix found in: ", path)
-	}
-
-	if filepath.Base(path) != "helmfile.nix" && filepath.Base(path) != "helmfile.gotmpl.nix" {
-		l.Fatalln("Trying to use a file that is not helmfile.nix or helmfile.gotmpl.nix: ", path)
-	}
-
-	return filepath.Base(path), filepath.Dir(path), nil
-}
-
 // Parse the command line arguments, return remaining arguments.
 func parseArgs() ([]string, error) {
 	args, err := parser.ParseArgs(os.Args)
@@ -166,39 +133,9 @@ func parseArgs() ([]string, error) {
 	return args, nil
 }
 
-// Convert a JSON list to YAML documents.
-func JSONToYAMLs(j []byte) ([]byte, error) {
-	// Convert the JSON to a list of object.
-	var jsonObj []any
-	// We are using yaml.Unmarshal here (instead of json.Unmarshal) because the
-	// Go JSON library doesn't try to pick the right number type (int, float,
-	// etc.) when unmarshalling to interface{}, it just picks float64
-	// universally. go-yaml does go through the effort of picking the right
-	// number type, so we can preserve number type throughout this process.
-	err := yaml.Unmarshal(j, &jsonObj)
-	if err != nil {
-		return nil, err
-	}
-
-	var y []byte
-	// Marshal this object into YAML.
-	for _, v := range jsonObj {
-		res, err := yaml.Marshal(v)
-		if err != nil {
-			return nil, err
-		}
-		if len(y) > 0 {
-			y = append(y, []byte("---\n")...)
-		}
-		y = append(y, res...)
-
-	}
-	return y, nil
-}
-
 // Render the helmfile using the nix command.
 func renderHelmfile(fileName, base string, env string) ([]byte, error) {
-	f, err := writeEvalNix()
+	f, err := utils.WriteEvalNix(eval)
 	if err != nil {
 		log.Fatalf("Could not write eval.nix: %s", err)
 	}
@@ -207,7 +144,7 @@ func renderHelmfile(fileName, base string, env string) ([]byte, error) {
 			l.Fatalf("Could not remove eval.nix: %s", err)
 		}
 	}()
-	val, err := writeValJson(base, opts.Env, opts.StateValuesSet)
+	val, err := writeValJSON(base, opts.Env, opts.StateValuesSet)
 	if err != nil {
 		log.Fatalf("Could not write values.json: %s", err)
 	}
@@ -216,56 +153,33 @@ func renderHelmfile(fileName, base string, env string) ([]byte, error) {
 			l.Fatalf("Could not remove values.json: %s", err)
 		}
 	}()
-
 	expr := fmt.Sprintf(`(import %s).render "%s" "%s" "%s" "%s"`, f.Name(), fileName, base, env, val.Name())
-	cmd := []string{
-		"--extra-experimental-features", "nix-command",
-		"--extra-experimental-features", "flakes",
-		"eval",
-		"--json",
-		"--impure",
-		"--expr", expr,
-	}
-	if len(opts.ShowTrace) > 0 {
-		cmd = append(cmd, "--show-trace")
-	}
-	eval := exec.Command("nix", cmd...)
-	l.Println("Running nix", strings.Join(cmd, " "))
-	eval.Stderr = os.Stderr
-	var out bytes.Buffer
-	eval.Stdout = &out
-	err = eval.Run()
+	ne := nixeval.NewNixEval(expr)
+	cmd := ne.Args(len(opts.ShowTrace) > 0)
+	json, err := ne.Eval(cmd)
 	if err != nil {
-		l.Fatalf("error: %s\n%s", err, out.String())
+		l.Fatalf("Failed to eval nix: %s\n%s", err, json)
 	}
-	json := out.Bytes()
-	yaml, err := JSONToYAMLs(json)
+	yaml, err := utils.JSONToYAMLs(json, func(v any) {
+		if reflect.TypeOf(v).Kind() == reflect.Map {
+			// Check if map has a list of releases
+			if _, ok := v.(map[string]any)["releases"]; ok {
+				var err error
+				cleanup, err = nixchart.RenderCharts(v.(map[string]any), base)
+				if err != nil {
+					log.Fatalf("Failed to render charts: %s", err)
+				}
+			}
+		}
+	})
 	if err != nil {
 		l.Fatalf("Failed to convert JSON to YAML: %s\n%s", err, json)
 	}
 	return yaml, nil
 }
 
-// Write the eval.nix to a temporary file. Must be removed after use.
-func writeEvalNix() (*os.File, error) {
-	f, err := os.CreateTemp("", "eval.*.nix")
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err := f.Close(); err != nil {
-			log.Fatalf("Could not close eval.nix: %s", err)
-		}
-	}()
-	if _, err := f.WriteString(eval); err != nil {
-		return nil, err
-	}
-	return f, nil
-}
-
 // Merge the yaml values to a json file for nix.
-// FIXME: This could probably be simplified
-func writeValJson(state string, env string, overrides []string) (*os.File, error) {
+func writeValJSON(state string, env string, overrides []string) (*os.File, error) {
 	f, err := os.CreateTemp("", "val.*.json")
 	if err != nil {
 		return nil, err
@@ -276,64 +190,28 @@ func writeValJson(state string, env string, overrides []string) (*os.File, error
 		}
 	}()
 	// Get defaults
-	defaultVal, err := os.ReadFile(state + "/env/defaults.yaml")
-	if err != nil {
-		if os.IsNotExist(err) {
-			defaultVal = []byte("{}")
-		} else {
-			return nil, err
-		}
-	}
-	var m, n map[string]any
-	err = yaml.Unmarshal(defaultVal, &m)
+	defaultsPath := filepath.Join(state, "env", "defaults.yaml")
+	envPath := filepath.Join(state, "env", env+".yaml")
+
+	m, err := utils.LoadYamlFile(defaultsPath)
 	if err != nil {
 		return nil, err
 	}
-	// Get env specific values
-	envVal, err := os.ReadFile(state + "/env/" + env + ".yaml")
-	if err != nil {
-		if os.IsNotExist(err) {
-			envVal = []byte("{}")
-		} else {
-			return nil, err
-		}
-	}
-	err = yaml.Unmarshal(envVal, &n)
+	n, err := utils.LoadYamlFile(envPath)
 	if err != nil {
 		return nil, err
 	}
-	m = mergeMaps(m, n)
+	m = utils.MergeMaps(m, n)
 	// Handle state overrides
 	for _, v := range overrides {
-		vals := strings.Split(v, ",")
-		for _, val := range vals {
+		vals := strings.SplitSeq(v, ",")
+		for val := range vals {
 			kv := strings.Split(val, "=")
 			if len(kv) != 2 {
 				return nil, fmt.Errorf("invalid state value: %s", val)
 			}
-			if strings.Contains(kv[0], ".") {
-				// Nested value
-				// Split the key into parts
-				mref := m
-				keys := strings.Split(kv[0], ".")
-				for i, key := range keys {
-					if i == len(keys)-1 {
-						mref[key], err = unmarshalOption(kv[1])
-						if err != nil {
-							return nil, err
-						}
-					} else {
-						if _, ok := m[key]; !ok {
-							mref[key] = make(map[string]any)
-						}
-						mref = m[key].(map[string]any)
-					}
-				}
-			} else {
-				m[kv[0]], err = unmarshalOption(kv[1])
-				if err != nil {
-					return nil, err
-				}
+			if err := utils.SetNestedMapValue(m, kv[0], kv[1]); err != nil {
+				return nil, fmt.Errorf("could not set nested map value %s: %w", kv[0], err)
 			}
 		}
 	}
@@ -372,32 +250,4 @@ func writeHelmfileYaml(fileName, base string, hf []byte) (*os.File, error) {
 	}
 
 	return f, nil
-}
-
-func unmarshalOption(val string) (any, error) {
-	var v any
-	err := yaml.Unmarshal([]byte(val), &v)
-	if err != nil {
-		return nil, err
-	}
-	return v, nil
-}
-
-func mergeMaps(a, b map[string]any) map[string]any {
-	out := make(map[string]any, len(a))
-	for k, v := range a {
-		out[k] = v
-	}
-	for k, v := range b {
-		if v, ok := v.(map[string]any); ok {
-			if bv, ok := out[k]; ok {
-				if bv, ok := bv.(map[string]any); ok {
-					out[k] = mergeMaps(bv, v)
-					continue
-				}
-			}
-		}
-		out[k] = v
-	}
-	return out
 }

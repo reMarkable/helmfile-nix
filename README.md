@@ -82,6 +82,29 @@ needed. Having it disabled also means you can directly have gotmpl syntax in
 your yaml file in cases where the helm charts use it, for example in
 alertmanager.
 
+## nix charts
+
+helmfile-nix also allows you to write charts in nix, which can be useful for
+writing simple dynamic charts without needing to write yaml+go templating.
+
+```nix
+{ lib, var, escape_var }:
+{
+  name = "mychart";
+  nixChart = "../mychart";
+  namespace = "default";
+  values = {
+    foo = "bar";
+    baz = escape_var "${var.environment.name}";
+  } ;
+}
+```
+
+The chart will be rendered to a temporary directory and passed to helmfile for
+processing, which will treat it as a static folder and use chartify to generate
+a chart. Look at [testData/helm-nixchart](./testData/helm-nixchart) for a
+trivial example.
+
 ## Useful links
 
 - [helmfile](https://github.com/helmfile/helmfile/) - A declarative helm wrapper.

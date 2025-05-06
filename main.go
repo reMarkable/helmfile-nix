@@ -17,7 +17,7 @@ import (
 )
 
 //go:embed eval.nix
-var eval []byte
+var eval string
 
 // We only care about these two, the remaining are passed through unharmed to helmfile
 type Options struct {
@@ -35,9 +35,16 @@ var (
 
 // Main app flow.
 func main() {
+	retcode := 0
+	defer func() {
+		os.Exit(retcode)
+	}()
+
 	args, err := parseArgs()
 	if err != nil {
-		l.Fatalln("Could not parse args: ", err)
+		l.Println("Could not parse args: ", err)
+		retcode = 1
+		return
 	}
 	seen := false
 	for _, v := range args[1:] {
@@ -49,77 +56,105 @@ func main() {
 	if !seen {
 		l.Println("No command provided. Call 'render' to see the rendered helmfile.")
 		l.Println("forwarding to helmfile help:")
-		callHelmfile([]byte(""), []string{}, ".", opts.Env)
-		os.Exit(1)
+		err := callHelmfile("", []string{}, ".", opts.Env)
+		if err != nil {
+			l.Println("Running helmfile failed: ", err)
+		}
+		retcode = 1
+		return
 	}
 	l.Printf("Args: %v\n", args)
 	l.Printf("file: %v env: %v\n", opts.Env, opts.File)
 
-	base, err := findBase()
+	hfFileName, base, err := findFileNameAndBase()
 	if err != nil {
-		l.Fatalln("Could not find helmfile.nix: ", err)
+		l.Fatalln("Could not find helmfile.nix or helmfile.gotmpl.nix: ", err)
 	}
-	hf, err := renderHelmfile(base, opts.Env)
+	hfContent, err := renderHelmfile(hfFileName, base, opts.Env)
 	if err != nil {
 		l.Fatalln("Failed to render helmfile: ", err)
 	}
+
 	if args[len(args)-1] == "render" {
-		fmt.Println(string(hf))
-		os.Exit(0)
+		fmt.Println(string(hfContent))
+		return
 	}
-	callHelmfile(hf, args[1:], base, opts.Env)
+
+	hfFile, err := writeHelmfileYaml(hfFileName, base, hfContent)
+	if err != nil {
+		log.Fatalf("Could not write helmfile YAML: %s", err)
+	}
+
+	defer func() {
+		if err := os.Remove(hfFile.Name()); err != nil {
+			panic(fmt.Sprintf("unable to remove %s: %s", hfFile.Name(), err))
+		}
+	}()
+
+	callErr := callHelmfile(hfFile.Name(), args[1:], base, opts.Env)
+
+	if callErr != nil {
+		log.Println("Running helmfile failed: ", err)
+		retcode = 1
+	}
 }
 
 // Call helmfile with the given arguments. Pipe the rendered helmfile into stdin.
-func callHelmfile(hf []byte, args []string, base string, env string) {
-	baseArgs := []string{"--file", "-", "-e", env}
+func callHelmfile(hf string, args []string, base string, env string) error {
+	baseArgs := []string{"-e", env}
+	if len(hf) > 0 {
+		baseArgs = append(baseArgs, "--file", hf)
+	}
 	err := os.Chdir(base)
 	if err != nil {
 		log.Fatalf("Could not change directory to %s: %s\n", base, err)
 	}
 	finalArgs := append(baseArgs, args...)
+	fmt.Printf("calling helmfile %s\n", strings.Join(finalArgs[1:], " "))
 	cmd := exec.Command("helmfile", finalArgs...)
-	cmd.Stdin = strings.NewReader(string(hf))
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
-	err = cmd.Run()
-	if err != nil {
-		log.Fatalln("Running helmfile failed: ", err)
-	}
+
+	return cmd.Run()
 }
 
-// Find the base directory of the helmfile.nix
-func findBase() (string, error) {
+// Find the filename and base directory of the helmfile.nix
+func findFileNameAndBase() (string, string, error) {
 	path, err := filepath.Abs(opts.File)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
+
 	fileInfo, err := os.Stat(path)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	// Check if the file is a directory
 	if fileInfo.IsDir() {
-
 		// Read the contents of the directory
 		files, err := os.ReadDir(path)
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 
 		// Check if the desired file exists in the directory
 		for _, file := range files {
 			if file.Name() == "helmfile.nix" {
-				return path, nil
+				return "helmfile.nix", path, nil
+			} else if file.Name() == "helmfile.gotmpl.nix" {
+				return "helmfile.gotmpl.nix", path, nil
 			}
 		}
-		l.Fatalln("No helmfile.nix found in: ", path)
+
+		l.Fatalln("No helmfile.nix or helmfile.gotmpl.nix found in: ", path)
 	}
-	if filepath.Base(path) != "helmfile.nix" {
-		l.Fatalln("Trying to use a file that is not helmfile.nix: ", path)
+
+	if filepath.Base(path) != "helmfile.nix" && filepath.Base(path) != "helmfile.gotmpl.nix" {
+		l.Fatalln("Trying to use a file that is not helmfile.nix or helmfile.gotmpl.nix: ", path)
 	}
-	return filepath.Dir(path), nil
+
+	return filepath.Base(path), filepath.Dir(path), nil
 }
 
 // Parse the command line arguments, return remaining arguments.
@@ -162,7 +197,7 @@ func JSONToYAMLs(j []byte) ([]byte, error) {
 }
 
 // Render the helmfile using the nix command.
-func renderHelmfile(base string, env string) ([]byte, error) {
+func renderHelmfile(fileName, base string, env string) ([]byte, error) {
 	f, err := writeEvalNix()
 	if err != nil {
 		log.Fatalf("Could not write eval.nix: %s", err)
@@ -173,7 +208,8 @@ func renderHelmfile(base string, env string) ([]byte, error) {
 		log.Fatalf("Could not write values.json: %s", err)
 	}
 	defer os.Remove(val.Name())
-	expr := fmt.Sprintf("(import %s).render \"%s\" \"%s\" \"%s\"", f.Name(), base, env, val.Name())
+
+	expr := fmt.Sprintf(`(import %s).render "%s" "%s" "%s" "%s"`, f.Name(), fileName, base, env, val.Name())
 	cmd := []string{
 		"--extra-experimental-features", "nix-command",
 		"--extra-experimental-features", "flakes",
@@ -208,7 +244,7 @@ func writeEvalNix() (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	if _, err := f.Write(eval); err != nil {
+	if _, err := f.WriteString(eval); err != nil {
 		f.Close()
 		return nil, err
 	}
@@ -301,6 +337,30 @@ func writeValJson(state string, env string, overrides []string) (*os.File, error
 	if err := f.Close(); err != nil {
 		return nil, err
 	}
+	return f, nil
+}
+
+// writeHelmfileYaml writes the helmfile.yaml to a temporary file in the state base dir. Must be manually removed.
+func writeHelmfileYaml(fileName, base string, hf []byte) (*os.File, error) {
+	extension := "yaml"
+	if strings.HasSuffix(fileName, ".gotmpl.nix") {
+		extension = "yaml.gotmpl"
+	}
+
+	f, err := os.CreateTemp(base, fmt.Sprintf("helmfile.*.%s", extension))
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := f.Write(hf); err != nil {
+		f.Close()
+		return nil, err
+	}
+
+	if err := f.Close(); err != nil {
+		return nil, err
+	}
+
 	return f, nil
 }
 

@@ -24,13 +24,13 @@ ARG TARGETARCH
 
 
 # renovate: datasource=github-releases depName=helmfile/helmfile
-ARG HELMFILE_VERSION=v0.163.1
+ARG HELMFILE_VERSION=v1.1.0
 # renovate: datasource=github-releases depName=helm/helm
-ARG HELM_VERSION=v3.15.0
+ARG HELM_VERSION=v3.18.0
 # renovate: datasource=github-releases depName=databus23/helm-diff
-ARG HELM_DIFF_VERSION=v3.9.5
+ARG HELM_DIFF_VERSION=v3.12.0
 # renovate: datasource=github-releases depName=kubernetes-sigs/kustomize
-ARG KUSTOMIZE_VERSION=5.3.0
+ARG KUSTOMIZE_VERSION=5.6.0
 
 COPY --from=nix ./result/bin/nix /bin
 

@@ -202,12 +202,20 @@ func renderHelmfile(fileName, base string, env string) ([]byte, error) {
 	if err != nil {
 		log.Fatalf("Could not write eval.nix: %s", err)
 	}
-	defer os.Remove(f.Name())
+	defer func() {
+		if err := os.Remove(f.Name()); err != nil {
+			l.Fatalf("Could not remove eval.nix: %s", err)
+		}
+	}()
 	val, err := writeValJson(base, opts.Env, opts.StateValuesSet)
 	if err != nil {
 		log.Fatalf("Could not write values.json: %s", err)
 	}
-	defer os.Remove(val.Name())
+	defer func() {
+		if err := os.Remove(val.Name()); err != nil {
+			l.Fatalf("Could not remove values.json: %s", err)
+		}
+	}()
 
 	expr := fmt.Sprintf(`(import %s).render "%s" "%s" "%s" "%s"`, f.Name(), fileName, base, env, val.Name())
 	cmd := []string{
@@ -244,11 +252,12 @@ func writeEvalNix() (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Fatalf("Could not close eval.nix: %s", err)
+		}
+	}()
 	if _, err := f.WriteString(eval); err != nil {
-		f.Close()
-		return nil, err
-	}
-	if err := f.Close(); err != nil {
 		return nil, err
 	}
 	return f, nil
@@ -261,6 +270,11 @@ func writeValJson(state string, env string, overrides []string) (*os.File, error
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Fatalf("Could not close values.json: %s", err)
+		}
+	}()
 	// Get defaults
 	defaultVal, err := os.ReadFile(state + "/env/defaults.yaml")
 	if err != nil {
@@ -331,10 +345,6 @@ func writeValJson(state string, env string, overrides []string) (*os.File, error
 	}
 	// Write the values
 	if _, err := f.Write(envStr); err != nil {
-		f.Close()
-		return nil, err
-	}
-	if err := f.Close(); err != nil {
 		return nil, err
 	}
 	return f, nil
@@ -348,16 +358,16 @@ func writeHelmfileYaml(fileName, base string, hf []byte) (*os.File, error) {
 	}
 
 	f, err := os.CreateTemp(base, fmt.Sprintf("helmfile.*.%s", extension))
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Fatalf("Could not close helmfile.yaml: %s", err)
+		}
+	}()
 	if err != nil {
 		return nil, err
 	}
 
 	if _, err := f.Write(hf); err != nil {
-		f.Close()
-		return nil, err
-	}
-
-	if err := f.Close(); err != nil {
 		return nil, err
 	}
 

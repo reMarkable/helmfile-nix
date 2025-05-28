@@ -36,6 +36,7 @@ releases:
     - chart: ../chart/
       name: test
 `
+
 var outputTemplated = `environments:
     dev:
         values: []
@@ -83,14 +84,20 @@ func TestTemplate(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	hfFile, _ := writeHelmfileYaml("helmfile.nix", cwd+"/testData/helm", []byte(output))
-	defer os.Remove(hfFile.Name())
+	defer func() {
+		if err := os.Remove(hfFile.Name()); err != nil {
+			panic("Failed to remove helmfile: " + err.Error())
+		}
+	}()
 
 	err := callHelmfile(hfFile.Name(), []string{"lint"}, cwd+"/testData/helm", "dev")
 	if err != nil {
 		t.Error("Failed to call helmfile: ", err)
 	}
 
-	w.Close()
+	if err := w.Close(); err != nil {
+		panic("Failed to close pipe: " + err.Error())
+	}
 	out, _ := io.ReadAll(r)
 	os.Stdout = storeStdout
 
@@ -107,7 +114,11 @@ func TestWriteValJson(t *testing.T) {
 	if err != nil {
 		t.Error("Failed to write values file: ", err)
 	}
-	defer os.Remove(f.Name())
+	defer func() {
+		if err := os.Remove(f.Name()); err != nil {
+			panic("Failed to remove values file: " + err.Error())
+		}
+	}()
 	res, err := os.ReadFile(f.Name())
 	if err != nil {
 		t.Error("Failed to read file: ", err)

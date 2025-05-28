@@ -15,7 +15,7 @@ in
     helmfile
     kubernetes-helm
   ];
-  pre-commit.hooks = {
+  git-hooks.hooks = {
     gofmt.enable = true;
     govet.enable = true;
     golangci-lint.enable = true;

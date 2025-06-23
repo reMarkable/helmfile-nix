@@ -27,6 +27,7 @@ func (n *NixEval) Eval(cmd []string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return out.Bytes(), nil
 }
 

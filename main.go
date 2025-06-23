@@ -51,6 +51,7 @@ func main() {
 		retcode = 1
 		return
 	}
+
 	seen := false
 	for _, v := range args[1:] {
 		if v[0] != '-' {
@@ -68,6 +69,7 @@ func main() {
 		retcode = 1
 		return
 	}
+
 	l.Printf("Args: %v\n", args)
 	l.Printf("file: %v env: %v\n", opts.Env, opts.File)
 
@@ -115,6 +117,7 @@ func callHelmfile(hf string, args []string, base string, env string) error {
 	if err != nil {
 		log.Fatalf("Could not change directory to %s: %s\n", base, err)
 	}
+
 	finalArgs := append(baseArgs, args...)
 	fmt.Printf("calling helmfile %s\n", strings.Join(finalArgs[1:], " "))
 	cmd := exec.Command("helmfile", finalArgs...)
@@ -130,6 +133,7 @@ func parseArgs() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return args, nil
 }
 
@@ -139,20 +143,24 @@ func renderHelmfile(fileName, base string, env string) ([]byte, error) {
 	if err != nil {
 		log.Fatalf("Could not write eval.nix: %s", err)
 	}
+
 	defer func() {
 		if err := os.Remove(f.Name()); err != nil {
 			l.Fatalf("Could not remove eval.nix: %s", err)
 		}
 	}()
+
 	val, err := writeValJSON(base, opts.Env, opts.StateValuesSet)
 	if err != nil {
 		log.Fatalf("Could not write values.json: %s", err)
 	}
+
 	defer func() {
 		if err := os.Remove(val.Name()); err != nil {
 			l.Fatalf("Could not remove values.json: %s", err)
 		}
 	}()
+
 	expr := fmt.Sprintf(`(import %s).render "%s" "%s" "%s" "%s"`, f.Name(), fileName, base, env, val.Name())
 	ne := nixeval.NewNixEval(expr)
 	cmd := ne.Args(len(opts.ShowTrace) > 0)
@@ -160,6 +168,7 @@ func renderHelmfile(fileName, base string, env string) ([]byte, error) {
 	if err != nil {
 		l.Fatalf("Failed to eval nix: %s\n%s", err, json)
 	}
+
 	yaml, err := utils.JSONToYAMLs(json, func(v any) {
 		if reflect.TypeOf(v).Kind() == reflect.Map {
 			// Check if map has a list of releases
@@ -175,6 +184,7 @@ func renderHelmfile(fileName, base string, env string) ([]byte, error) {
 	if err != nil {
 		l.Fatalf("Failed to convert JSON to YAML: %s\n%s", err, json)
 	}
+
 	return yaml, nil
 }
 
@@ -184,11 +194,13 @@ func writeValJSON(state string, env string, overrides []string) (*os.File, error
 	if err != nil {
 		return nil, err
 	}
+
 	defer func() {
 		if err := f.Close(); err != nil {
 			log.Fatalf("Could not close values.json: %s", err)
 		}
 	}()
+
 	// Get defaults
 	defaultsPath := filepath.Join(state, "env", "defaults.yaml")
 	envPath := filepath.Join(state, "env", env+".yaml")
@@ -197,10 +209,12 @@ func writeValJSON(state string, env string, overrides []string) (*os.File, error
 	if err != nil {
 		return nil, err
 	}
+
 	n, err := utils.LoadYamlFile(envPath)
 	if err != nil {
 		return nil, err
 	}
+
 	m = utils.MergeMaps(m, n)
 	// Handle state overrides
 	for _, v := range overrides {
@@ -210,6 +224,7 @@ func writeValJSON(state string, env string, overrides []string) (*os.File, error
 			if len(kv) != 2 {
 				return nil, fmt.Errorf("invalid state value: %s", val)
 			}
+
 			if err := utils.SetNestedMapValue(m, kv[0], kv[1]); err != nil {
 				return nil, fmt.Errorf("could not set nested map value %s: %w", kv[0], err)
 			}
@@ -221,10 +236,12 @@ func writeValJSON(state string, env string, overrides []string) (*os.File, error
 	if err != nil {
 		return nil, err
 	}
+
 	// Write the values
 	if _, err := f.Write(envStr); err != nil {
 		return nil, err
 	}
+
 	return f, nil
 }
 
@@ -241,6 +258,7 @@ func writeHelmfileYaml(fileName, base string, hf []byte) (*os.File, error) {
 			log.Fatalf("Could not close helmfile.yaml: %s", err)
 		}
 	}()
+
 	if err != nil {
 		return nil, err
 	}

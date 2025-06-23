@@ -14,6 +14,7 @@ func TestRenderCharts_Success(t *testing.T) {
 		if err := os.WriteFile(resourcesPath, []byte("mocked: true\n"), 0644); err != nil {
 			return "", err
 		}
+
 		return tmpDir, nil
 	}
 	defer func() { evalChart = origEvalChart }()
@@ -36,13 +37,16 @@ func TestRenderCharts_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RenderCharts failed: %v", err)
 	}
+
 	if len(cleanup) != 1 {
 		t.Fatalf("Expected 1 chart rendered, got %d", len(cleanup))
 	}
+
 	// Check that the rendered chart directory exists and contains resources.yaml
 	resourcesPath := filepath.Join(cleanup[0], "resources.yaml")
 	if _, err := os.Stat(resourcesPath); err != nil {
 		t.Fatalf("resources.yaml not found: %v", err)
 	}
+
 	CleanupCharts(cleanup)
 }

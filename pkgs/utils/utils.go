@@ -20,6 +20,7 @@ func UnmarshalOption(val string) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return v, nil
 }
 
@@ -51,6 +52,7 @@ func FindFileNameAndBase(input string, wanted []string) (string, string, error) 
 				}
 			}
 		}
+
 	}
 	// Check if the file is one of the wanted files
 	for _, w := range wanted {
@@ -58,6 +60,7 @@ func FindFileNameAndBase(input string, wanted []string) (string, string, error) 
 			return w, filepath.Dir(path), nil
 		}
 	}
+
 	return "", "", fmt.Errorf("expected %v,  found : %s ", wanted, path)
 }
 
@@ -82,6 +85,7 @@ func JSONToYAMLs(j []byte, preprocess func(any)) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		if len(y) > 0 {
 			y = append(y, []byte("---\n")...)
 		}
@@ -99,12 +103,15 @@ func LoadYamlFile(path string) (map[string]any, error) {
 		if os.IsNotExist(err) {
 			return map[string]any{}, nil
 		}
+
 		return nil, err
 	}
+
 	var m map[string]any
 	if err := yaml.Unmarshal(data, &m); err != nil {
 		return nil, err
 	}
+
 	return m, nil
 }
 
@@ -158,13 +165,16 @@ func WriteEvalNix(eval string) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	defer func() {
 		if err := f.Close(); err != nil {
 			l.Fatalf("Could not close eval.nix: %s", err)
 		}
 	}()
+
 	if _, err := f.WriteString(eval); err != nil {
 		return nil, err
 	}
+
 	return f, nil
 }

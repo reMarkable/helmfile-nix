@@ -27,6 +27,7 @@ func RenderCharts(obj map[string]any, base string) ([]string, error) {
 	if releasesValue.Kind() != reflect.Slice {
 		return nil, errors.New("releases is not a slice")
 	}
+
 	for i := 0; i < releasesValue.Len(); i++ {
 		element := releasesValue.Index(i)
 		log.Printf("Processing release at index %d: %v\n", i, element)
@@ -35,6 +36,7 @@ func RenderCharts(obj map[string]any, base string) ([]string, error) {
 			if !ok {
 				return nil, fmt.Errorf("release at index %d is not a hash: %v", i, element)
 			}
+
 			nixChart := chart["nixChart"]
 			if nixChart != nil {
 				if renderedChart, err := evalChart(chart, base); err == nil {
@@ -44,6 +46,7 @@ func RenderCharts(obj map[string]any, base string) ([]string, error) {
 				} else {
 					return nil, fmt.Errorf("failed to evaluate chart %s: %w", chart["name"], err)
 				}
+
 				log.Printf("Rendering chart: %v\n", nixChart)
 			}
 		}
@@ -66,14 +69,17 @@ var evalChart = func(chart map[string]any, hfbase string) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("expected 'nixChart' to be a string, but got %T", chart["nixChart"])
 	}
+
 	fileName, base, err := utils.FindFileNameAndBase(path.Join(hfbase, nixChart), []string{"chart.nix"})
 	if err != nil {
 		return "", fmt.Errorf("failed to find chart file: %w", err)
 	}
+
 	f, err := utils.WriteEvalNix(eval)
 	if err != nil {
 		return "", fmt.Errorf("could not write eval.nix: %s", err)
 	}
+
 	defer func() {
 		if err := os.Remove(f.Name()); err != nil {
 			log.Fatalf("could not remove eval.nix: %s", err)
@@ -84,6 +90,7 @@ var evalChart = func(chart map[string]any, hfbase string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to create temporary file for values: %s", err)
 	}
+
 	defer func() {
 		if err := os.Remove(val.Name()); err != nil {
 			panic(fmt.Sprintf("unable to remove %s: %s", val.Name(), err))
@@ -99,10 +106,12 @@ var evalChart = func(chart map[string]any, hfbase string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	// Write the values
 	if _, err := val.Write(values); err != nil {
 		return "", err
 	}
+
 	err = val.Close()
 	if err != nil {
 		log.Fatalln("Failed to create temporary file for values:", err)

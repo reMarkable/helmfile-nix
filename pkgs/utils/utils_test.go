@@ -75,6 +75,7 @@ func TestFindFileNameAndBase(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to create file: %v", err)
 		}
+
 		if err := f.Close(); err != nil {
 			panic(err)
 		}

@@ -1,2 +1,2 @@
 ---
-bar: baz
+nginx_version: "1.4.0"

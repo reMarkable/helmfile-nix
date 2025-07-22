@@ -4,9 +4,7 @@
     environments = {
       dev = {
         values = [
-          {
-            bar = "baz";
-          }
+          { }
         ];
       };
     };
@@ -16,10 +14,11 @@
       {
         name = "test-nix";
         nixChart = "../nixChart/";
+        createNamespace = true;
+        namespace = "test";
         values = {
-          namespace = "test";
-          cluster_name = "test-cluster";
-          karpenter_instance_profile_role = var.values.bar;
+          replicas = 2;
+          version = var.values.nginx_version;
         };
       }
     ];

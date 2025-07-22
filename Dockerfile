@@ -12,9 +12,11 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags="-w -s
 # Build the binary.
 RUN go build -mod=readonly -v -o helmfile-nix .
 
-FROM  ghcr.io/lix-project/lix:latest  AS nix
+FROM nixos/nix:2.29.0 AS nix
 
-RUN nix-build '<nixpkgs>' -A lixStatic
+ADD nix-static.nix  nix-static.nix
+RUN echo "filter-syscalls = false" >> /etc/nix/nix.conf
+RUN nix-build  ./nix-static.nix
 RUN chmod 755 result/bin/nix && nix-shell -p gcc --run 'strip result/bin/nix'
 
 
@@ -26,7 +28,7 @@ ARG TARGETARCH
 # renovate: datasource=github-releases depName=helmfile/helmfile
 ARG HELMFILE_VERSION=v1.1.0
 # renovate: datasource=github-releases depName=helm/helm
-ARG HELM_VERSION=v3.17.3
+ARG HELM_VERSION=v3.18.3
 # renovate: datasource=github-releases depName=databus23/helm-diff
 ARG HELM_DIFF_VERSION=v3.12.0
 # renovate: datasource=github-releases depName=kubernetes-sigs/kustomize

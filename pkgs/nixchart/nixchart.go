@@ -92,12 +92,18 @@ var evalChart = func(chart map[string]any, hfbase string) (string, error) {
 
 	defer func() {
 		if err := os.Remove(val.Name()); err != nil {
-			panic(fmt.Sprintf("unable to remove %s: %s", val.Name(), err))
+			log.Println("Failed to remove temporary file for values:", val.Name())
 		}
 	}()
-	v := chart["values"]
+	v := chart["values"].(map[string]any)
 	if v == nil {
 		v = map[string]any{}
+	}
+	if v["namespace"] != nil {
+		log.Println("Warning: Do not set 'namespace' in values, use 'namespace' in the chart instead.")
+	}
+	if ns, ok := chart["namespace"].(string); ok && ns != "" {
+		v["namespace"] = ns // Add namespace to values if it exists
 	}
 	delete(chart, "values") // Remove values from chart to avoid duplication in the rendered chart
 	// Serialize the values

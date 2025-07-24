@@ -39,6 +39,7 @@ COPY --from=nix ./result/bin/nix /bin
 COPY --from=builder /app/helmfile-nix /usr/local/bin/helmfile-nix
 
 ENV INSTALL_PATH=/usr/local/bin
+ENV HELM_PLUGINS=/usr/local/lib/helm-plugins
 
 RUN echo "Building for ${TARGETOS}-${TARGETARCH}"
 

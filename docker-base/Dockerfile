@@ -6,7 +6,7 @@ RUN nix-build  ./nix-static.nix
 RUN chmod 755 result/bin/nix && nix-shell -p gcc --run 'strip result/bin/nix'
 
 
-FROM alpine:3.19@sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b
+FROM alpine:3.19@sha256:3be987e6cde1d07e873c012bf6cfe941e6e85d16ca5fc5b8bedc675451d2de67
 
 COPY --from=nix ./result/bin/nix /bin
 

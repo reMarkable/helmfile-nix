@@ -12,15 +12,9 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags="-w -s
 # Build the binary.
 RUN go build -mod=readonly -v -o helmfile-nix .
 
-FROM nixos/nix:2.29.0 AS nix
 
-ADD nix-static.nix  nix-static.nix
-RUN echo "filter-syscalls = false" >> /etc/nix/nix.conf
-RUN nix-build  ./nix-static.nix
-RUN chmod 755 result/bin/nix && nix-shell -p gcc --run 'strip result/bin/nix'
+FROM ghcr.io/remarkable/helmfile-nix/nix-alpine:main@sha256:dbca0cb92de4f89f9b1bcb9e12225252984eddb5042722be7e1bde6892abac78
 
-
-FROM alpine:3.19@sha256:c5b1261d6d3e43071626931fc004f70149baeba2c8ec672bd4f27761f8e1ad6b
 ARG TARGETOS
 ARG TARGETARCH
 
@@ -33,8 +27,6 @@ ARG HELM_VERSION=v3.18.3
 ARG HELM_DIFF_VERSION=v3.12.0
 # renovate: datasource=github-releases depName=kubernetes-sigs/kustomize
 ARG KUSTOMIZE_VERSION=5.6.0
-
-COPY --from=nix ./result/bin/nix /bin
 
 COPY --from=builder /app/helmfile-nix /usr/local/bin/helmfile-nix
 

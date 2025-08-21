@@ -25,6 +25,7 @@
       {
         packages.default = pkgs.callPackage ./. {
           inherit (gomod2nix.legacyPackages.${system}) buildGoApplication;
+          version = self.shortRev or self.dirtyShortRev;
         };
         packages.devenv-up = self.devShells.${system}.default.config.procfileScript;
         packages.devenv-test = self.devShells.${system}.default.config.test;

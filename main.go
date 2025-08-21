@@ -21,6 +21,8 @@ import (
 //go:embed eval.nix
 var eval string
 
+var version = "dev"
+
 // List of temporary directories that need to be cleaned up after use.
 var cleanup []string
 
@@ -30,6 +32,7 @@ type Options struct {
 	Env            string   `short:"e" long:"environment" description:"Environment to deploy to" default:"dev"`
 	ShowTrace      []bool   `long:"show-trace" description:"Enable stacktraces"`
 	StateValuesSet []string `long:"state-values-set" description:"Set state values"`
+	Version        bool     `short:"v" long:"version" description:"Print version and exit"`
 }
 
 var (
@@ -49,6 +52,18 @@ func main() {
 	if err != nil {
 		l.Println("Could not parse args: ", err)
 		retcode = 1
+		return
+	}
+	if opts.Version {
+		fmt.Printf("helmfile-nix version %s\n", version)
+		cmd := exec.Command("helmfile", "--version")
+		cmd.Stderr = os.Stderr
+		cmd.Stdout = os.Stdout
+		callErr := cmd.Run()
+		if callErr != nil {
+			log.Println("Running helmfile failed: ", err)
+			retcode = 1
+		}
 		return
 	}
 

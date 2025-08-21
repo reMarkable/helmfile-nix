@@ -1,4 +1,5 @@
 {
+  version,
   pkgs ? (
     let
       inherit (builtins) fetchTree fromJSON readFile;
@@ -23,7 +24,8 @@ let
 in
 buildGoApplication {
   pname = "helmfile-nix";
-  version = "0.1";
+  version = version;
+  ldflags = "-X main.version=${version} -w -s";
   pwd = ./.;
   src = ./.;
   nativeBuildInputs = with pkgs; [

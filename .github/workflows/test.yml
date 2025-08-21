@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: cachix/install-nix-action@v31
-      - uses: cachix/cachix-action@v14
+      - uses: cachix/cachix-action@v16
         with:
           name: devenv
       - run: nix develop --quiet --impure --command bash -c "devenv test"

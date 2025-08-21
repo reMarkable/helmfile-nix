@@ -17,8 +17,6 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v5
-        with:
-          fetch-tags: true
       - id: lc_repo
         run: python3 -c'print("out=${{github.repository}}".lower())' >> "$GITHUB_OUTPUT"
       - id: git_version

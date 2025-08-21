@@ -38,12 +38,10 @@ jobs:
 
       - name: Check out code
         uses: actions/checkout@v5
-        with:
-          fetch-tags: true
 
       - name: Build
         run: |
-          env GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -v -ldflags="-X main.version=$(git describe --tags) -w -s" -o helmfile-nix-${{ matrix.os }}-${{ matrix.arch }}
+          env GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -v -ldflags="-X main.version=$(git describe --tags --always) -w -s" -o helmfile-nix-${{ matrix.os }}-${{ matrix.arch }}
 
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1

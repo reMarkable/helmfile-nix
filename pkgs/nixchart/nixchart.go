@@ -30,7 +30,6 @@ func RenderCharts(obj map[string]any, base string) ([]string, error) {
 
 	for i := 0; i < releasesValue.Len(); i++ {
 		element := releasesValue.Index(i)
-		log.Printf("Processing release at index %d: %v\n", i, element)
 		if element.Kind() != reflect.Map {
 			chart, ok := element.Interface().(map[string]any)
 			if !ok {

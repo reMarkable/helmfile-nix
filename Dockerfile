@@ -17,7 +17,7 @@ ARG TARGETARCH
 
 
 # renovate: datasource=github-releases depName=helmfile/helmfile
-ARG HELMFILE_VERSION=v1.1.0
+ARG HELMFILE_VERSION=v1.1.5
 # renovate: datasource=github-releases depName=helm/helm
 ARG HELM_VERSION=v3.18.3
 # renovate: datasource=github-releases depName=databus23/helm-diff

@@ -10,6 +10,7 @@
     };
   }
   {
+    helmDefaults.kubeContext = "kind-chart-testing";
     releases = [
       {
         name = "test-nix";

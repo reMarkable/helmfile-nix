@@ -1,20 +1,21 @@
-name: Lint & Test chart
+name: Run integration tests
 
 on:
   pull_request:
 
 jobs:
-  test:
+  integrationtest:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
+      - run: docker build --load -t helmfile-nix .
       - name: Create KIND Cluster
         uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
-      - uses: actions/checkout@v4
-      - uses: cachix/install-nix-action@v31
-      - run: nix build .
-      - run: ./result/bin/helmfile-nix
+        with:
+          kubeconfig: ./kubeconfig
+      - run: kubectl cluster-info --context kind-chart-testing --kubeconfig kubeconfig
+      - run: docker run --network=host -v .:/app -e KUBECONFIG=/app/kubeconfig helmfile-nix apply -f /app/testData/helm-nixchart
+      - run: docker run --network=host -v .:/app -e KUBECONFIG=/app/kubeconfig helmfile-nix diff -f /app/testData/helm-nixchart

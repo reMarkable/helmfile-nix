@@ -11,6 +11,7 @@ class HelmfileNix < Formula
   license "MIT"
 
   depends_on "go" => :build
+  depends_on "helmfile"
 
   def install
     system "go", "build", *std_go_args(ldflags: "-s -w")

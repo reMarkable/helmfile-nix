@@ -63,6 +63,24 @@ func CleanupCharts(cleanup []string) {
 	}
 }
 
+func prepareChartValues(chart map[string]any) map[string]any {
+	var v map[string]any
+	vl, ok := chart["values"].([]map[string]any)
+	if ok {
+		mergedValues := map[string]any{}
+		for _, m := range vl {
+			mergedValues = utils.MergeMaps(mergedValues, m)
+		}
+		v = mergedValues
+	} else {
+		v, ok = chart["values"].(map[string]any)
+		if !ok || v == nil {
+			v = map[string]any{}
+		}
+	}
+	return v
+}
+
 var evalChart = func(chart map[string]any, hfbase string) (string, error) {
 	nixChart, ok := chart["nixChart"].(string)
 	if !ok {
@@ -95,10 +113,8 @@ var evalChart = func(chart map[string]any, hfbase string) (string, error) {
 			log.Println("Failed to remove temporary file for values:", val.Name())
 		}
 	}()
-	v := chart["values"].(map[string]any)
-	if v == nil {
-		v = map[string]any{}
-	}
+
+	v := prepareChartValues(chart)
 	if v["namespace"] != nil {
 		log.Println("Warning: Do not set 'namespace' in values, use 'namespace' in the chart instead.")
 	}
@@ -119,7 +135,7 @@ var evalChart = func(chart map[string]any, hfbase string) (string, error) {
 
 	err = val.Close()
 	if err != nil {
-		log.Fatalln("Failed to create temporary file for values:", err)
+		log.Fatalln("Failed to close temporary file for values:", err)
 	}
 	expr := fmt.Sprintf(`(import %s).render "%s" "%s" "%s"`, f.Name(), fileName, base, val.Name())
 	ne := nixeval.NewNixEval(expr)
@@ -136,7 +152,7 @@ var evalChart = func(chart map[string]any, hfbase string) (string, error) {
 	if err != nil {
 		log.Fatalln("Failed to create temporary directory for chart:", chart, " : ", err)
 	}
-	if err = os.WriteFile(chartDir+"/resources.yaml", yaml, 0644); err != nil {
+	if err = os.WriteFile(chartDir+"/resources.yaml", yaml, 0o644); err != nil {
 		log.Fatalln("Failed to write resources.yaml for chart:", chart, " : ", err)
 	}
 

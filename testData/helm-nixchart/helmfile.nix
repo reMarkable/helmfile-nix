@@ -22,6 +22,21 @@
           version = var.values.nginx_version;
         };
       }
+      {
+        name = "test-multival-nix";
+        nixChart = "../nixChart/";
+        createNamespace = true;
+        namespace = "test-multi";
+        values = [
+          {
+            replicas = 3;
+            version = var.values.nginx_version;
+          }
+          {
+            replicas = 4;
+          }
+        ];
+      }
     ];
   }
 ]

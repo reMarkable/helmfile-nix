@@ -1,4 +1,4 @@
-FROM  golang:1.24.6-bullseye AS builder
+FROM  golang:1.25.1-trixie AS builder
 
 ARG BUILDPLATFORM
 ARG TARGETOS

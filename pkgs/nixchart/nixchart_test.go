@@ -79,7 +79,7 @@ func TestPrepareChartValues(t *testing.T) {
 	// Test with missing or nil values
 	chartNil := map[string]any{}
 	vals = prepareChartValues(chartNil)
-	if len(vals) != 0 {
-		t.Errorf("Expected empty map, got: %#v", vals)
+	if len(vals) != 1 {
+		t.Errorf("Expected only release meta, got: %#v", vals)
 	}
 }

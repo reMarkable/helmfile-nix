@@ -78,6 +78,8 @@ func prepareChartValues(chart map[string]any) map[string]any {
 			v = map[string]any{}
 		}
 	}
+	delete(chart, "values") // Remove values from chart to avoid duplication in the rendered chart
+	v["release"] = chart
 	return v
 }
 
@@ -115,13 +117,17 @@ var evalChart = func(chart map[string]any, hfbase string) (string, error) {
 	}()
 
 	v := prepareChartValues(chart)
-	if v["namespace"] != nil {
-		log.Println("Warning: Do not set 'namespace' in values, use 'namespace' in the chart instead.")
+	for _, key := range []string{"namespace", "release"} {
+		if v[key] != nil {
+			log.Printf("warning: `%s` in values is reserved and will be overwritten\n", key)
+		}
 	}
 	if ns, ok := chart["namespace"].(string); ok && ns != "" {
 		v["namespace"] = ns // Add namespace to values if it exists
 	}
-	delete(chart, "values") // Remove values from chart to avoid duplication in the rendered chart
+	if release, ok := chart["release"].(string); ok && release != "" {
+		log.Println("warning: `release` value is reserved and will be overwritten with chart definition")
+	}
 	// Serialize the values
 	values, err := json.Marshal(v)
 	if err != nil {

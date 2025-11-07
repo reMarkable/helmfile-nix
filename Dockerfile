@@ -10,7 +10,7 @@ ADD . .
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -ldflags="-X main.version=${HF_VERSION} -w -s" -o helmfile-nix .
 
 
-FROM ghcr.io/remarkable/helmfile-nix/nix-alpine:main@sha256:e765d502c5461ec1e7c95feffb581a94ac8c734588c09e5692aea66a9674d4dd
+FROM ghcr.io/remarkable/helmfile-nix/nix-alpine:main@sha256:bba484345d025af20d5723789402f2d310513093a8edbd12b320e182c6e6624c
 
 ARG TARGETOS
 ARG TARGETARCH

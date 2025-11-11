@@ -148,9 +148,10 @@ var evalChart = func(chart map[string]any, hfbase string) (string, error) {
 	if err != nil {
 		log.Fatalln("Failed to convert JSON to YAML for chart:", chart, " : ", err)
 	}
-	chartDir, err := os.MkdirTemp(os.TempDir(), "nixchart-")
+	chartDir := path.Join(os.TempDir(), fmt.Sprintf("nixChart-%s-%s", v["namespace"], v["name"]))
+	err = os.MkdirAll(chartDir, 0o700)
 	if err != nil {
-		log.Fatalln("Failed to create temporary directory for chart:", chart, " : ", err)
+		log.Fatalln("Failed to create temporary directory for chart:", chartDir, " : ", err)
 	}
 	if err = os.WriteFile(chartDir+"/resources.yaml", yaml, 0o644); err != nil {
 		log.Fatalln("Failed to write resources.yaml for chart:", chart, " : ", err)

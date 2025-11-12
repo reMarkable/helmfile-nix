@@ -76,10 +76,29 @@ func TestPrepareChartValues(t *testing.T) {
 		t.Errorf("Expected merged values, got: %#v", vals)
 	}
 
-	// Test with missing or nil values
+	// Test with no values
 	chartNil := map[string]any{}
 	vals = prepareChartValues(chartNil)
 	if len(vals) != 1 {
 		t.Errorf("Expected only release meta, got: %#v", vals)
+	}
+
+	// Test that namespace and release metadata is copied into values.
+	chartMap = map[string]any{
+		"namespace": "test-ns",
+		"installed": true,
+		"values": map[string]any{
+			"a":         1,
+			"b":         "two",
+			"namespace": "should-be-overwritten",
+		},
+	}
+	vals = prepareChartValues(chartMap)
+	if vals["namespace"] != "test-ns" || vals["release"] == nil {
+		t.Errorf("Expected copied values, got: %#v", vals)
+	}
+	releaseMap, ok := vals["release"].(map[string]any)
+	if !ok || releaseMap["values"] != nil {
+		t.Errorf("Expected release metadata without values, got: %#v", releaseMap)
 	}
 }

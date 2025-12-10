@@ -1,4 +1,4 @@
-FROM nixos/nix:2.32.4 AS nix
+FROM nixos/nix:2.33.0 AS nix
 
 ADD nix-static.nix  nix-static.nix
 RUN echo "filter-syscalls = false" >> /etc/nix/nix.conf

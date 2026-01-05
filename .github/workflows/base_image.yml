@@ -32,7 +32,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
+        uses: docker/metadata-action@f0a4bc3c2d4c68c4ddaeaca7ba2497760fe0ead4
         with:
           images: ${{ env.REGISTRY }}/${{ steps.lc_repo.outputs.out}}/nix-alpine
       - name: Build and push Docker image

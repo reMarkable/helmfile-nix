@@ -13,9 +13,12 @@ import (
 	_ "embed"
 
 	flags "github.com/jessevdk/go-flags"
+	"github.com/reMarkable/helmfile-nix/pkgs/environment"
+	"github.com/reMarkable/helmfile-nix/pkgs/filesystem"
 	"github.com/reMarkable/helmfile-nix/pkgs/nixchart"
 	"github.com/reMarkable/helmfile-nix/pkgs/nixeval"
-	"github.com/reMarkable/helmfile-nix/pkgs/utils"
+	"github.com/reMarkable/helmfile-nix/pkgs/tempfiles"
+	"github.com/reMarkable/helmfile-nix/pkgs/transform"
 )
 
 //go:embed eval.nix
@@ -88,7 +91,7 @@ func main() {
 	l.Printf("Args: %v\n", args)
 	l.Printf("file: %v env: %v\n", opts.Env, opts.File)
 
-	hfFileName, base, err := utils.FindFileNameAndBase(opts.File, []string{"helmfile.nix", "helmfile.gotmpl.nix"})
+	hfFileName, base, err := filesystem.FindFileNameAndBase(opts.File, []string{"helmfile.nix", "helmfile.gotmpl.nix"})
 	if err != nil {
 		l.Fatalln("Could not find helmfile: ", err)
 	}
@@ -154,7 +157,7 @@ func parseArgs() ([]string, error) {
 
 // Render the helmfile using the nix command.
 func renderHelmfile(fileName, base string, env string) ([]byte, error) {
-	f, err := utils.WriteEvalNix(eval)
+	f, err := tempfiles.WriteEvalNix(eval)
 	if err != nil {
 		log.Fatalf("Could not write eval.nix: %s", err)
 	}
@@ -184,7 +187,7 @@ func renderHelmfile(fileName, base string, env string) ([]byte, error) {
 		l.Fatalf("Failed to eval nix: %s\n%s", err, json)
 	}
 
-	yaml, err := utils.JSONToYAMLs(json, func(v any) {
+	yaml, err := transform.JSONToYAMLs(json, func(v any) {
 		if reflect.TypeOf(v).Kind() == reflect.Map {
 			// Check if map has a list of releases
 			if _, ok := v.(map[string]any)["releases"]; ok {
@@ -220,17 +223,17 @@ func writeValJSON(state string, env string, overrides []string) (*os.File, error
 	defaultsPath := filepath.Join(state, "env", "defaults.yaml")
 	envPath := filepath.Join(state, "env", env+".yaml")
 
-	m, err := utils.LoadYamlFile(defaultsPath)
+	m, err := environment.LoadYamlFile(defaultsPath)
 	if err != nil {
 		return nil, err
 	}
 
-	n, err := utils.LoadYamlFile(envPath)
+	n, err := environment.LoadYamlFile(envPath)
 	if err != nil {
 		return nil, err
 	}
 
-	m = utils.MergeMaps(m, n)
+	m = environment.MergeMaps(m, n)
 	// Handle state overrides
 	for _, v := range overrides {
 		vals := strings.SplitSeq(v, ",")
@@ -240,7 +243,7 @@ func writeValJSON(state string, env string, overrides []string) (*os.File, error
 				return nil, fmt.Errorf("invalid state value: %s", val)
 			}
 
-			if err := utils.SetNestedMapValue(m, kv[0], kv[1]); err != nil {
+			if err := environment.SetNestedMapValue(m, kv[0], kv[1]); err != nil {
 				return nil, fmt.Errorf("could not set nested map value %s: %w", kv[0], err)
 			}
 		}

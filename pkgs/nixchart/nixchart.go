@@ -12,8 +12,11 @@ import (
 
 	_ "embed"
 
+	"github.com/reMarkable/helmfile-nix/pkgs/environment"
+	"github.com/reMarkable/helmfile-nix/pkgs/filesystem"
 	"github.com/reMarkable/helmfile-nix/pkgs/nixeval"
-	"github.com/reMarkable/helmfile-nix/pkgs/utils"
+	"github.com/reMarkable/helmfile-nix/pkgs/tempfiles"
+	"github.com/reMarkable/helmfile-nix/pkgs/transform"
 )
 
 //go:embed eval.nix
@@ -69,7 +72,7 @@ func prepareChartValues(chart map[string]any) map[string]any {
 	if ok {
 		mergedValues := map[string]any{}
 		for _, m := range vl {
-			mergedValues = utils.MergeMaps(mergedValues, m)
+			mergedValues = environment.MergeMaps(mergedValues, m)
 		}
 		v = mergedValues
 	} else {
@@ -97,12 +100,12 @@ var evalChart = func(chart map[string]any, hfbase string) (string, error) {
 		return "", fmt.Errorf("expected 'nixChart' to be a string, but got %T", chart["nixChart"])
 	}
 
-	fileName, base, err := utils.FindFileNameAndBase(path.Join(hfbase, nixChart), []string{"chart.nix"})
+	fileName, base, err := filesystem.FindFileNameAndBase(path.Join(hfbase, nixChart), []string{"chart.nix"})
 	if err != nil {
 		return "", fmt.Errorf("failed to find chart file: %w", err)
 	}
 
-	f, err := utils.WriteEvalNix(eval)
+	f, err := tempfiles.WriteEvalNix(eval)
 	if err != nil {
 		return "", fmt.Errorf("could not write eval.nix: %s", err)
 	}
@@ -147,7 +150,7 @@ var evalChart = func(chart map[string]any, hfbase string) (string, error) {
 	if err != nil {
 		log.Fatalln("Failed to evaluate chart:", chart, " : ", err)
 	}
-	yaml, err := utils.JSONToYAMLs(json, func(v any) {})
+	yaml, err := transform.JSONToYAMLs(json, func(v any) {})
 	if err != nil {
 		log.Fatalln("Failed to convert JSON to YAML for chart:", chart, " : ", err)
 	}

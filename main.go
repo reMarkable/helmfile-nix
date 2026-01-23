@@ -1,24 +1,18 @@
 package main
 
 import (
-	"encoding/json"
+	_ "embed"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
-	"path/filepath"
-	"reflect"
-	"strings"
-
-	_ "embed"
 
 	flags "github.com/jessevdk/go-flags"
+
 	"github.com/reMarkable/helmfile-nix/pkgs/environment"
 	"github.com/reMarkable/helmfile-nix/pkgs/filesystem"
+	"github.com/reMarkable/helmfile-nix/pkgs/helmfile"
 	"github.com/reMarkable/helmfile-nix/pkgs/nixchart"
-	"github.com/reMarkable/helmfile-nix/pkgs/nixeval"
-	"github.com/reMarkable/helmfile-nix/pkgs/tempfiles"
-	"github.com/reMarkable/helmfile-nix/pkgs/transform"
 )
 
 //go:embed eval.nix
@@ -64,7 +58,7 @@ func main() {
 		cmd.Stdout = os.Stdout
 		callErr := cmd.Run()
 		if callErr != nil {
-			log.Println("Running helmfile failed: ", err)
+			l.Println("Running helmfile failed: ", callErr)
 			retcode = 1
 		}
 		return
@@ -77,10 +71,12 @@ func main() {
 		}
 	}
 
+	executor := helmfile.NewExecutor(l)
+
 	if !seen {
 		l.Println("No command provided. Call 'render' to see the rendered helmfile.")
 		l.Println("forwarding to helmfile help:")
-		err := callHelmfile("", []string{}, ".", opts.Env)
+		err := executor.Execute("", []string{}, ".", opts.Env)
 		if err != nil {
 			l.Println("Running helmfile failed: ", err)
 		}
@@ -95,19 +91,37 @@ func main() {
 	if err != nil {
 		l.Fatalln("Could not find helmfile: ", err)
 	}
-	hfContent, err := renderHelmfile(hfFileName, base, opts.Env)
+
+	// Write environment values JSON
+	valuesWriter := environment.NewValuesWriter(l)
+	valJSON, err := valuesWriter.WriteJSON(base, opts.Env, opts.StateValuesSet)
+	if err != nil {
+		l.Fatalln("Could not write values.json: ", err)
+	}
+
+	defer func() {
+		if err := os.Remove(valJSON.Name()); err != nil {
+			l.Fatalf("Could not remove values.json: %s", err)
+		}
+	}()
+
+	// Render helmfile
+	renderer := helmfile.NewRenderer(eval, len(opts.ShowTrace) > 0, opts.StateValuesSet, l)
+	hfContent, chartCleanup, err := renderer.Render(hfFileName, base, opts.Env, valJSON.Name())
 	if err != nil {
 		l.Fatalln("Failed to render helmfile: ", err)
 	}
+	cleanup = chartCleanup
 
 	if args[len(args)-1] == "render" {
 		fmt.Println(string(hfContent))
 		return
 	}
 
-	hfFile, err := writeHelmfileYaml(hfFileName, base, hfContent)
+	writer := helmfile.NewWriter()
+	hfFile, err := writer.WriteYAML(hfFileName, base, hfContent)
 	if err != nil {
-		log.Fatalf("Could not write helmfile YAML: %s", err)
+		l.Fatalf("Could not write helmfile YAML: %s", err)
 	}
 
 	defer func() {
@@ -116,33 +130,13 @@ func main() {
 		}
 	}()
 
-	callErr := callHelmfile(hfFile.Name(), args[1:], base, opts.Env)
+	callErr := executor.Execute(hfFile.Name(), args[1:], base, opts.Env)
 
 	nixchart.CleanupCharts(cleanup)
 	if callErr != nil {
-		log.Println("Running helmfile failed: ", err)
+		l.Println("Running helmfile failed: ", callErr)
 		retcode = 1
 	}
-}
-
-// Call helmfile with the given arguments. Pipe the rendered helmfile into stdin.
-func callHelmfile(hf string, args []string, base string, env string) error {
-	baseArgs := []string{"-e", env}
-	if len(hf) > 0 {
-		baseArgs = append(baseArgs, "--file", hf)
-	}
-	err := os.Chdir(base)
-	if err != nil {
-		log.Fatalf("Could not change directory to %s: %s\n", base, err)
-	}
-
-	finalArgs := append(baseArgs, args...)
-	fmt.Printf("calling helmfile %s\n", strings.Join(finalArgs[1:], " "))
-	cmd := exec.Command("helmfile", finalArgs...)
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-
-	return cmd.Run()
 }
 
 // Parse the command line arguments, return remaining arguments.
@@ -153,137 +147,4 @@ func parseArgs() ([]string, error) {
 	}
 
 	return args, nil
-}
-
-// Render the helmfile using the nix command.
-func renderHelmfile(fileName, base string, env string) ([]byte, error) {
-	f, err := tempfiles.WriteEvalNix(eval)
-	if err != nil {
-		log.Fatalf("Could not write eval.nix: %s", err)
-	}
-
-	defer func() {
-		if err := os.Remove(f.Name()); err != nil {
-			l.Fatalf("Could not remove eval.nix: %s", err)
-		}
-	}()
-
-	val, err := writeValJSON(base, opts.Env, opts.StateValuesSet)
-	if err != nil {
-		log.Fatalf("Could not write values.json: %s", err)
-	}
-
-	defer func() {
-		if err := os.Remove(val.Name()); err != nil {
-			l.Fatalf("Could not remove values.json: %s", err)
-		}
-	}()
-
-	expr := fmt.Sprintf(`(import %s).render "%s" "%s" "%s" "%s"`, f.Name(), fileName, base, env, val.Name())
-	ne := nixeval.NewNixEval(expr)
-	cmd := ne.Args(len(opts.ShowTrace) > 0)
-	json, err := ne.Eval(cmd)
-	if err != nil {
-		l.Fatalf("Failed to eval nix: %s\n%s", err, json)
-	}
-
-	yaml, err := transform.JSONToYAMLs(json, func(v any) {
-		if reflect.TypeOf(v).Kind() == reflect.Map {
-			// Check if map has a list of releases
-			if _, ok := v.(map[string]any)["releases"]; ok {
-				var err error
-				cleanup, err = nixchart.RenderCharts(v.(map[string]any), base)
-				if err != nil {
-					log.Fatalf("Failed to render charts: %s", err)
-				}
-			}
-		}
-	})
-	if err != nil {
-		l.Fatalf("Failed to convert JSON to YAML: %s\n%s", err, json)
-	}
-
-	return yaml, nil
-}
-
-// Merge the yaml values to a json file for nix.
-func writeValJSON(state string, env string, overrides []string) (*os.File, error) {
-	f, err := os.CreateTemp("", "val.*.json")
-	if err != nil {
-		return nil, err
-	}
-
-	defer func() {
-		if err := f.Close(); err != nil {
-			log.Fatalf("Could not close values.json: %s", err)
-		}
-	}()
-
-	// Get defaults
-	defaultsPath := filepath.Join(state, "env", "defaults.yaml")
-	envPath := filepath.Join(state, "env", env+".yaml")
-
-	m, err := environment.LoadYamlFile(defaultsPath)
-	if err != nil {
-		return nil, err
-	}
-
-	n, err := environment.LoadYamlFile(envPath)
-	if err != nil {
-		return nil, err
-	}
-
-	m = environment.MergeMaps(m, n)
-	// Handle state overrides
-	for _, v := range overrides {
-		vals := strings.SplitSeq(v, ",")
-		for val := range vals {
-			kv := strings.Split(val, "=")
-			if len(kv) != 2 {
-				return nil, fmt.Errorf("invalid state value: %s", val)
-			}
-
-			if err := environment.SetNestedMapValue(m, kv[0], kv[1]); err != nil {
-				return nil, fmt.Errorf("could not set nested map value %s: %w", kv[0], err)
-			}
-		}
-	}
-
-	// Serialize the values
-	envStr, err := json.Marshal(m)
-	if err != nil {
-		return nil, err
-	}
-
-	// Write the values
-	if _, err := f.Write(envStr); err != nil {
-		return nil, err
-	}
-
-	return f, nil
-}
-
-// writeHelmfileYaml writes the helmfile.yaml to a temporary file in the state base dir. Must be manually removed.
-func writeHelmfileYaml(fileName, base string, hf []byte) (*os.File, error) {
-	extension := "yaml"
-	if strings.HasSuffix(fileName, ".gotmpl.nix") {
-		extension = "yaml.gotmpl"
-	}
-
-	f, err := os.CreateTemp(base, fmt.Sprintf("helmfile.*.%s", extension))
-	defer func() {
-		if err := f.Close(); err != nil {
-			log.Fatalf("Could not close helmfile.yaml: %s", err)
-		}
-	}()
-
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err := f.Write(hf); err != nil {
-		return nil, err
-	}
-
-	return f, nil
 }

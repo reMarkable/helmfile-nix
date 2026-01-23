@@ -2,6 +2,7 @@
 package nixchart
 
 import (
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,8 +10,6 @@ import (
 	"os"
 	"path"
 	"reflect"
-
-	_ "embed"
 
 	"github.com/reMarkable/helmfile-nix/pkgs/environment"
 	"github.com/reMarkable/helmfile-nix/pkgs/filesystem"

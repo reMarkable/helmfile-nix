@@ -2,11 +2,14 @@ package main
 
 import (
 	"io"
+	"log"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/andreyvit/diff"
+	"github.com/reMarkable/helmfile-nix/pkgs/environment"
+	"github.com/reMarkable/helmfile-nix/pkgs/helmfile"
 )
 
 var cwd, _ = os.Getwd()
@@ -43,7 +46,21 @@ releases:
 `
 
 func TestRender(t *testing.T) {
-	hf, err := renderHelmfile("helmfile.nix", cwd+"/testData/helm", "dev")
+	logger := log.Default()
+	valuesWriter := environment.NewValuesWriter(logger)
+	renderer := helmfile.NewRenderer(eval, false, []string{}, logger)
+
+	valJSON, err := valuesWriter.WriteJSON(cwd+"/testData/helm", "dev", []string{})
+	if err != nil {
+		t.Error("Failed to write values JSON: ", err)
+	}
+	defer func() {
+		if err := os.Remove(valJSON.Name()); err != nil {
+			t.Error("Failed to remove temp values file: ", err)
+		}
+	}()
+
+	hf, _, err := renderer.Render("helmfile.nix", cwd+"/testData/helm", "dev", valJSON.Name())
 	if err != nil {
 		t.Error("Failed to parse helmfile: ", err)
 	}
@@ -53,7 +70,21 @@ func TestRender(t *testing.T) {
 }
 
 func TestRenderTemplated(t *testing.T) {
-	hf, err := renderHelmfile("helmfile.gotmpl.nix", cwd+"/testData/helm-templated", "dev")
+	logger := log.Default()
+	valuesWriter := environment.NewValuesWriter(logger)
+	renderer := helmfile.NewRenderer(eval, false, []string{}, logger)
+
+	valJSON, err := valuesWriter.WriteJSON(cwd+"/testData/helm-templated", "dev", []string{})
+	if err != nil {
+		t.Error("Failed to write values JSON: ", err)
+	}
+	defer func() {
+		if err := os.Remove(valJSON.Name()); err != nil {
+			t.Error("Failed to remove temp values file: ", err)
+		}
+	}()
+
+	hf, _, err := renderer.Render("helmfile.gotmpl.nix", cwd+"/testData/helm-templated", "dev", valJSON.Name())
 	if err != nil {
 		t.Error("Failed to parse helmfile: ", err)
 	}
@@ -63,17 +94,21 @@ func TestRenderTemplated(t *testing.T) {
 }
 
 func TestTemplate(t *testing.T) {
+	logger := log.Default()
+	writer := helmfile.NewWriter()
+	executor := helmfile.NewExecutor(logger)
+
 	storeStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
-	hfFile, _ := writeHelmfileYaml("helmfile.nix", cwd+"/testData/helm", []byte(output))
+	hfFile, _ := writer.WriteYAML("helmfile.nix", cwd+"/testData/helm", []byte(output))
 	defer func() {
 		if err := os.Remove(hfFile.Name()); err != nil {
 			panic("Failed to remove helmfile: " + err.Error())
 		}
 	}()
 
-	err := callHelmfile(hfFile.Name(), []string{"lint"}, cwd+"/testData/helm", "dev")
+	err := executor.Execute(hfFile.Name(), []string{"lint"}, cwd+"/testData/helm", "dev")
 	if err != nil {
 		t.Error("Failed to call helmfile: ", err)
 	}
@@ -93,7 +128,10 @@ func TestTemplate(t *testing.T) {
 var vals = `{"bad":123,"bar":"true","foo":{"bad":"hello","bar":false,"baz":true,"foo":true}}`
 
 func TestWriteValJson(t *testing.T) {
-	f, err := writeValJSON(cwd+"/testData/helm", "test", []string{"foo.bar=false", "bad=123", "foo.bad=hello"})
+	logger := log.Default()
+	valuesWriter := environment.NewValuesWriter(logger)
+
+	f, err := valuesWriter.WriteJSON(cwd+"/testData/helm", "test", []string{"foo.bar=false", "bad=123", "foo.bad=hello"})
 	if err != nil {
 		t.Error("Failed to write values file: ", err)
 	}

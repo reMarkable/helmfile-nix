@@ -102,3 +102,33 @@ func TestPrepareChartValues(t *testing.T) {
 		t.Errorf("Expected release metadata without values, got: %#v", releaseMap)
 	}
 }
+
+func TestCleanupCharts_NonExistent(t *testing.T) {
+	// Test that CleanupCharts handles non-existent directories gracefully
+	cleanup := []string{"/nonexistent/directory/path"}
+
+	// Should not panic, just log error
+	CleanupCharts(cleanup)
+}
+
+func TestCleanupCharts_Mixed(t *testing.T) {
+	// Create a real directory
+	tmpDir := t.TempDir()
+
+	// Mix of existing and non-existent directories
+	cleanup := []string{tmpDir, "/nonexistent/path"}
+
+	// Should clean up what it can without panicking
+	CleanupCharts(cleanup)
+
+	// Verify the temp directory was removed
+	if _, err := os.Stat(tmpDir); !os.IsNotExist(err) {
+		t.Error("CleanupCharts() should have removed temp directory")
+	}
+}
+
+func TestCleanupCharts_Empty(t *testing.T) {
+	// Test with empty cleanup list
+	CleanupCharts([]string{})
+	// Should not panic
+}

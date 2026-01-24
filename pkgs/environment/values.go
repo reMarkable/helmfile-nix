@@ -37,10 +37,10 @@ func SetNestedMapValue(m map[string]any, dottedKey string, value string) error {
 					return err
 				}
 			} else {
-				if _, ok := m[key]; !ok {
+				if _, ok := mref[key]; !ok {
 					mref[key] = make(map[string]any)
 				}
-				mref = m[key].(map[string]any)
+				mref = mref[key].(map[string]any)
 			}
 		}
 	} else {

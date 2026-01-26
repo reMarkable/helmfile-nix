@@ -24,7 +24,7 @@ let
 in
 buildGoApplication {
   pname = "helmfile-nix";
-  version = version;
+  inherit version;
   ldflags = "-X main.version=${version} -w -s";
   pwd = ./.;
   src = ./.;

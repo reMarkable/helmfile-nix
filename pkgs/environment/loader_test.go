@@ -7,16 +7,17 @@ import (
 )
 
 func TestLoadYamlFile_Success(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.yaml")
 
 	content := `
 foo: bar
 nested:
-  key: value
+  key: keyValue
   number: 42
 `
-	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte(content), 0o600); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -30,7 +31,7 @@ nested:
 	}
 
 	if nested, ok := result["nested"].(map[string]any); ok {
-		if nested["key"] != "value" {
+		if nested["key"] != "keyValue" {
 			t.Errorf("LoadYamlFile() expected nested.key=value, got: %v", nested["key"])
 		}
 		if nested["number"] != 42 {
@@ -42,8 +43,8 @@ nested:
 }
 
 func TestLoadYamlFile_MissingFile(t *testing.T) {
+	t.Parallel()
 	result, err := LoadYamlFile("/nonexistent/file.yaml")
-
 	if err != nil {
 		t.Fatalf("LoadYamlFile() with missing file should not error: %v", err)
 	}
@@ -55,10 +56,11 @@ func TestLoadYamlFile_MissingFile(t *testing.T) {
 }
 
 func TestLoadYamlFile_EmptyFile(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "empty.yaml")
 
-	if err := os.WriteFile(testFile, []byte(""), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte(""), 0o600); err != nil {
 		t.Fatalf("Failed to create empty file: %v", err)
 	}
 
@@ -74,6 +76,7 @@ func TestLoadYamlFile_EmptyFile(t *testing.T) {
 }
 
 func TestLoadYamlFile_InvalidYAML(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "invalid.yaml")
 
@@ -84,7 +87,7 @@ foo: bar
 - invalid list
   with bad structure
 `
-	if err := os.WriteFile(testFile, []byte(invalidYAML), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte(invalidYAML), 0o600); err != nil {
 		t.Fatalf("Failed to create invalid YAML file: %v", err)
 	}
 
@@ -96,11 +99,12 @@ foo: bar
 }
 
 func TestLoadYamlFile_ComplexStructure(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "complex.yaml")
 
 	complexYAML := `
-string: value
+string: rootValue
 number: 123
 boolean: true
 list:
@@ -110,7 +114,7 @@ list:
 nested:
   deep:
     deeper:
-      key: value
+      key: deepValue
 mixed:
   string: text
   number: 456
@@ -118,7 +122,7 @@ mixed:
     - a
     - b
 `
-	if err := os.WriteFile(testFile, []byte(complexYAML), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte(complexYAML), 0o600); err != nil {
 		t.Fatalf("Failed to create complex YAML file: %v", err)
 	}
 
@@ -128,7 +132,7 @@ mixed:
 	}
 
 	// Verify various types were parsed correctly
-	if result["string"] != "value" {
+	if result["string"] != "rootValue" {
 		t.Errorf("LoadYamlFile() string value incorrect: %v", result["string"])
 	}
 
@@ -150,6 +154,7 @@ mixed:
 }
 
 func TestLoadYamlFile_PermissionDenied(t *testing.T) {
+	t.Parallel()
 	// Skip this test on systems where we can't easily test permission denied
 	if os.Getuid() == 0 {
 		t.Skip("Skipping permission test when running as root")
@@ -158,16 +163,16 @@ func TestLoadYamlFile_PermissionDenied(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "noperm.yaml")
 
-	if err := os.WriteFile(testFile, []byte("test: value"), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte("test: value"), 0o600); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
 	// Remove read permissions
-	if err := os.Chmod(testFile, 0000); err != nil {
+	if err := os.Chmod(testFile, 0o000); err != nil {
 		t.Fatalf("Failed to chmod file: %v", err)
 	}
 	defer func() {
-		_ = os.Chmod(testFile, 0644) // Restore for cleanup
+		_ = os.Chmod(testFile, 0o644) // Restore for cleanup
 	}()
 
 	_, err := LoadYamlFile(testFile)

@@ -2,12 +2,16 @@ package environment
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
+// ErrInvalidStateValue is returned when a state value has invalid format.
+var ErrInvalidStateValue = errors.New("invalid state value")
 
 // ValuesWriter handles writing environment values to JSON files.
 type ValuesWriter struct {
@@ -56,7 +60,7 @@ func (w *ValuesWriter) WriteJSON(state string, env string, overrides []string) (
 		for val := range vals {
 			kv := strings.Split(val, "=")
 			if len(kv) != 2 {
-				return nil, fmt.Errorf("invalid state value: %s", val)
+				return nil, fmt.Errorf("%w: %s", ErrInvalidStateValue, val)
 			}
 
 			if err := SetNestedMapValue(m, kv[0], kv[1]); err != nil {

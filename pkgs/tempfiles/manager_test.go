@@ -7,6 +7,7 @@ import (
 )
 
 func TestWriteEvalNix_Success(t *testing.T) {
+	t.Parallel()
 	evalContent := `
 {
   test = "content";
@@ -49,6 +50,7 @@ func TestWriteEvalNix_Success(t *testing.T) {
 }
 
 func TestWriteEvalNix_EmptyContent(t *testing.T) {
+	t.Parallel()
 	f, err := WriteEvalNix("")
 	if err != nil {
 		t.Fatalf("WriteEvalNix() error with empty content: %v", err)
@@ -71,6 +73,7 @@ func TestWriteEvalNix_EmptyContent(t *testing.T) {
 }
 
 func TestWriteEvalNix_LargeContent(t *testing.T) {
+	t.Parallel()
 	// Create large Nix expression (10KB)
 	largeContent := strings.Repeat("# comment\n", 500)
 
@@ -96,6 +99,7 @@ func TestWriteEvalNix_LargeContent(t *testing.T) {
 }
 
 func TestWriteEvalNix_SpecialCharacters(t *testing.T) {
+	t.Parallel()
 	// Test with special characters that might cause issues
 	evalContent := `
 {

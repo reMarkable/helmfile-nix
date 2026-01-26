@@ -13,6 +13,7 @@ import (
 var testVals = `{"bad":123,"bar":"true","foo":{"bad":"hello","bar":false,"baz":true,"foo":true}}`
 
 func TestValuesWriter_WriteJSON_Success(t *testing.T) {
+	t.Parallel()
 	logger := log.Default()
 	writer := NewValuesWriter(logger)
 
@@ -43,6 +44,7 @@ func TestValuesWriter_WriteJSON_Success(t *testing.T) {
 }
 
 func TestValuesWriter_WriteJSON_MissingEnvironmentFiles(t *testing.T) {
+	t.Parallel()
 	logger := log.Default()
 	writer := NewValuesWriter(logger)
 
@@ -72,6 +74,7 @@ func TestValuesWriter_WriteJSON_MissingEnvironmentFiles(t *testing.T) {
 }
 
 func TestValuesWriter_WriteJSON_InvalidOverrideFormat(t *testing.T) {
+	t.Parallel()
 	logger := log.Default()
 	writer := NewValuesWriter(logger)
 
@@ -82,7 +85,7 @@ func TestValuesWriter_WriteJSON_InvalidOverrideFormat(t *testing.T) {
 	}
 
 	// Create empty defaults file
-	if err := os.WriteFile(filepath.Join(envDir, "defaults.yaml"), []byte("{}"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(envDir, "defaults.yaml"), []byte("{}"), 0o600); err != nil {
 		t.Fatalf("Failed to create defaults: %v", err)
 	}
 
@@ -97,6 +100,7 @@ func TestValuesWriter_WriteJSON_InvalidOverrideFormat(t *testing.T) {
 
 	for _, tc := range invalidOverrides {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			f, err := writer.WriteJSON(tmpDir, "dev", []string{tc.override})
 			if err == nil {
 				if f != nil {
@@ -115,6 +119,7 @@ func TestValuesWriter_WriteJSON_InvalidOverrideFormat(t *testing.T) {
 }
 
 func TestValuesWriter_WriteJSON_InvalidYAMLSyntax(t *testing.T) {
+	t.Parallel()
 	logger := log.Default()
 	writer := NewValuesWriter(logger)
 
@@ -130,7 +135,7 @@ foo: bar
   invalid indentation
 	mixed tabs
 `
-	if err := os.WriteFile(filepath.Join(envDir, "defaults.yaml"), []byte(invalidYAML), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(envDir, "defaults.yaml"), []byte(invalidYAML), 0o600); err != nil {
 		t.Fatalf("Failed to create invalid YAML: %v", err)
 	}
 
@@ -142,6 +147,7 @@ foo: bar
 }
 
 func TestValuesWriter_WriteJSON_NestedOverrides(t *testing.T) {
+	t.Parallel()
 	logger := log.Default()
 	writer := NewValuesWriter(logger)
 
@@ -157,7 +163,7 @@ foo:
   bar:
     baz: original
 `
-	if err := os.WriteFile(filepath.Join(envDir, "defaults.yaml"), []byte(defaultsYAML), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(envDir, "defaults.yaml"), []byte(defaultsYAML), 0o600); err != nil {
 		t.Fatalf("Failed to create defaults: %v", err)
 	}
 
@@ -184,6 +190,7 @@ foo:
 }
 
 func TestValuesWriter_WriteJSON_MultipleOverrides(t *testing.T) {
+	t.Parallel()
 	logger := log.Default()
 	writer := NewValuesWriter(logger)
 
@@ -194,7 +201,7 @@ func TestValuesWriter_WriteJSON_MultipleOverrides(t *testing.T) {
 	}
 
 	// Create defaults
-	if err := os.WriteFile(filepath.Join(envDir, "defaults.yaml"), []byte("{}"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(envDir, "defaults.yaml"), []byte("{}"), 0o600); err != nil {
 		t.Fatalf("Failed to create defaults: %v", err)
 	}
 
@@ -223,6 +230,7 @@ func TestValuesWriter_WriteJSON_MultipleOverrides(t *testing.T) {
 }
 
 func TestValuesWriter_NewValuesWriter(t *testing.T) {
+	t.Parallel()
 	logger := log.Default()
 	writer := NewValuesWriter(logger)
 

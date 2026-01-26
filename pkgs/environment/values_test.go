@@ -6,6 +6,7 @@ import (
 )
 
 func TestMergeMaps(t *testing.T) {
+	t.Parallel()
 	a := map[string]any{"a": 1, "b": map[string]any{"x": 1}}
 	b := map[string]any{"b": map[string]any{"y": 2}, "c": 3}
 	expected := map[string]any{
@@ -20,6 +21,7 @@ func TestMergeMaps(t *testing.T) {
 }
 
 func TestMergeMaps_EmptyMaps(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		a        map[string]any
@@ -48,6 +50,7 @@ func TestMergeMaps_EmptyMaps(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := MergeMaps(tt.a, tt.b)
 			if !reflect.DeepEqual(got, tt.expected) {
 				t.Errorf("MergeMaps() = %#v, want %#v", got, tt.expected)
@@ -57,6 +60,7 @@ func TestMergeMaps_EmptyMaps(t *testing.T) {
 }
 
 func TestMergeMaps_NestedConflict(t *testing.T) {
+	t.Parallel()
 	// Test when both maps have nested structures at same key
 	a := map[string]any{
 		"nested": map[string]any{
@@ -92,6 +96,7 @@ func TestMergeMaps_NestedConflict(t *testing.T) {
 }
 
 func TestMergeMaps_ValueOverwrite(t *testing.T) {
+	t.Parallel()
 	// Test that b's values overwrite a's values
 	a := map[string]any{"key": "original"}
 	b := map[string]any{"key": "overwritten"}
@@ -104,6 +109,7 @@ func TestMergeMaps_ValueOverwrite(t *testing.T) {
 }
 
 func TestMergeMaps_DeepNesting(t *testing.T) {
+	t.Parallel()
 	a := map[string]any{
 		"level1": map[string]any{
 			"level2": map[string]any{
@@ -140,19 +146,21 @@ func TestMergeMaps_DeepNesting(t *testing.T) {
 }
 
 func TestSetNestedMapValue_SimpleKey(t *testing.T) {
+	t.Parallel()
 	m := map[string]any{}
 
-	err := SetNestedMapValue(m, "simple", "value")
+	err := SetNestedMapValue(m, "simple", "nestedValue")
 	if err != nil {
 		t.Errorf("SetNestedMapValue() error: %v", err)
 	}
 
-	if m["simple"] != "value" {
+	if m["simple"] != "nestedValue" {
 		t.Errorf("SetNestedMapValue() = %#v, want 'value'", m["simple"])
 	}
 }
 
 func TestSetNestedMapValue_DottedKey(t *testing.T) {
+	t.Parallel()
 	m := map[string]any{}
 
 	err := SetNestedMapValue(m, "foo.bar.baz", "value")
@@ -177,6 +185,7 @@ func TestSetNestedMapValue_DottedKey(t *testing.T) {
 }
 
 func TestSetNestedMapValue_DeepNesting(t *testing.T) {
+	t.Parallel()
 	m := map[string]any{}
 
 	// Test 5 levels deep
@@ -197,6 +206,7 @@ func TestSetNestedMapValue_DeepNesting(t *testing.T) {
 }
 
 func TestSetNestedMapValue_NumericValue(t *testing.T) {
+	t.Parallel()
 	m := map[string]any{}
 
 	err := SetNestedMapValue(m, "number", "123")
@@ -210,6 +220,7 @@ func TestSetNestedMapValue_NumericValue(t *testing.T) {
 }
 
 func TestSetNestedMapValue_BooleanValue(t *testing.T) {
+	t.Parallel()
 	m := map[string]any{}
 
 	err := SetNestedMapValue(m, "flag", "true")
@@ -223,6 +234,7 @@ func TestSetNestedMapValue_BooleanValue(t *testing.T) {
 }
 
 func TestSetNestedMapValue_ArrayValue(t *testing.T) {
+	t.Parallel()
 	m := map[string]any{}
 
 	err := SetNestedMapValue(m, "list", "[1, 2, 3]")
@@ -241,6 +253,7 @@ func TestSetNestedMapValue_ArrayValue(t *testing.T) {
 }
 
 func TestSetNestedMapValue_InvalidJSON(t *testing.T) {
+	t.Parallel()
 	m := map[string]any{}
 
 	// Use something that's invalid in both JSON and YAML
@@ -251,6 +264,7 @@ func TestSetNestedMapValue_InvalidJSON(t *testing.T) {
 }
 
 func TestSetNestedMapValue_InvalidYAML_SimpleKey(t *testing.T) {
+	t.Parallel()
 	m := map[string]any{}
 
 	// Test error path for simple (non-dotted) key with invalid value
@@ -261,6 +275,7 @@ func TestSetNestedMapValue_InvalidYAML_SimpleKey(t *testing.T) {
 }
 
 func TestSetNestedMapValue_ExistingPath(t *testing.T) {
+	t.Parallel()
 	// Test setting a value when part of the path already exists
 	m := map[string]any{
 		"existing": map[string]any{

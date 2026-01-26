@@ -2,10 +2,12 @@ package transform
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
 func TestUnmarshalOption(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		input    string
 		expected any
@@ -29,6 +31,7 @@ func TestUnmarshalOption(t *testing.T) {
 }
 
 func TestJSONToYAMLs_Success(t *testing.T) {
+	t.Parallel()
 	json := []byte(`[{"key": "value"}, {"foo": "bar"}]`)
 
 	yaml, err := JSONToYAMLs(json, func(v any) {})
@@ -43,6 +46,7 @@ func TestJSONToYAMLs_Success(t *testing.T) {
 }
 
 func TestJSONToYAMLs_EmptyArray(t *testing.T) {
+	t.Parallel()
 	json := []byte(`[]`)
 
 	yaml, err := JSONToYAMLs(json, func(v any) {})
@@ -56,6 +60,7 @@ func TestJSONToYAMLs_EmptyArray(t *testing.T) {
 }
 
 func TestJSONToYAMLs_SingleItem(t *testing.T) {
+	t.Parallel()
 	json := []byte(`[{"test": "single"}]`)
 
 	yaml, err := JSONToYAMLs(json, func(v any) {})
@@ -70,6 +75,7 @@ func TestJSONToYAMLs_SingleItem(t *testing.T) {
 }
 
 func TestJSONToYAMLs_WithPreprocessing(t *testing.T) {
+	t.Parallel()
 	json := []byte(`[{"key": "value"}]`)
 
 	preprocessed := false
@@ -90,12 +96,13 @@ func TestJSONToYAMLs_WithPreprocessing(t *testing.T) {
 
 	// Check that preprocessing modified the output
 	yamlStr := string(yaml)
-	if !contains(yamlStr, "added: field") {
+	if !strings.Contains(yamlStr, "added: field") {
 		t.Errorf("JSONToYAMLs() preprocessing didn't modify output: %q", yamlStr)
 	}
 }
 
 func TestJSONToYAMLs_InvalidJSON(t *testing.T) {
+	t.Parallel()
 	json := []byte(`{invalid json}`)
 
 	_, err := JSONToYAMLs(json, func(v any) {})
@@ -105,6 +112,7 @@ func TestJSONToYAMLs_InvalidJSON(t *testing.T) {
 }
 
 func TestJSONToYAMLs_ComplexStructure(t *testing.T) {
+	t.Parallel()
 	json := []byte(`[
 		{"name": "release1", "values": {"key": "val1"}},
 		{"name": "release2", "values": {"key": "val2"}}
@@ -116,19 +124,21 @@ func TestJSONToYAMLs_ComplexStructure(t *testing.T) {
 	}
 
 	yamlStr := string(yaml)
+	expected := `name: release1
+values:
+    key: val1
+---
+name: release2
+values:
+    key: val2
+`
 	// Should have separator between documents
-	if !contains(yamlStr, "---") {
-		t.Error("JSONToYAMLs() missing document separator")
+	if yamlStr != expected {
+		t.Errorf("Expected YAML output:\n%q\nGot:\n%q", expected, yamlStr)
 	}
 
 	// Should contain both releases
-	if !contains(yamlStr, "release1") || !contains(yamlStr, "release2") {
+	if !strings.Contains(yamlStr, "release1") || !strings.Contains(yamlStr, "release2") {
 		t.Errorf("JSONToYAMLs() missing expected content: %q", yamlStr)
 	}
-}
-
-// Helper function
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
-		(len(s) > 0 && (s[0:len(substr)] == substr || contains(s[1:], substr))))
 }

@@ -9,6 +9,7 @@ import (
 var cwd, _ = os.Getwd()
 
 func TestPathAndBase(t *testing.T) {
+	t.Parallel()
 	inputs := []string{"../../testData/helm", "../../testData/helm/helmfile.nix", "../..//testData/helm/helmfile.nix", cwd + "/../../testData/helm/helmfile.nix", "../../testData/helm/helmfile.nix"}
 	for _, input := range inputs {
 		hfPath, base, err := FindFileNameAndBase(input, []string{"helmfile.nix"})
@@ -29,6 +30,7 @@ func TestPathAndBase(t *testing.T) {
 }
 
 func TestFindFileNameAndBase(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	// Create wanted files
 	wantedFiles := []string{"foo.nix", "bar.nix"}

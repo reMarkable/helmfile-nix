@@ -9,6 +9,7 @@ import (
 )
 
 func TestExecutor_Execute_Success(t *testing.T) {
+	t.Parallel()
 	logger := log.Default()
 	executor := NewExecutor(logger)
 
@@ -17,13 +18,12 @@ func TestExecutor_Execute_Success(t *testing.T) {
 
 	// Create a simple test file to verify we're in the right directory
 	testFile := filepath.Join(tmpDir, "test.txt")
-	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte("test"), 0o600); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
 	// Execute helmfile version command (should be available)
-	err := executor.Execute("", []string{"--version"}, tmpDir, "dev")
-
+	err := executor.Execute(t.Context(), "", []string{"--version"}, tmpDir, "dev")
 	// We expect this to succeed if helmfile is installed
 	// If helmfile is not installed, we should get a clear error
 	if err != nil {
@@ -36,11 +36,12 @@ func TestExecutor_Execute_Success(t *testing.T) {
 }
 
 func TestExecutor_Execute_ChangeDirectoryError(t *testing.T) {
+	t.Parallel()
 	logger := log.Default()
 	executor := NewExecutor(logger)
 
 	// Try to change to a non-existent directory
-	err := executor.Execute("", []string{"--version"}, "/nonexistent/directory/path", "dev")
+	err := executor.Execute(t.Context(), "", []string{"--version"}, "/nonexistent/directory/path", "dev")
 
 	if err == nil {
 		t.Error("Execute() expected error for non-existent directory, got nil")
@@ -52,6 +53,7 @@ func TestExecutor_Execute_ChangeDirectoryError(t *testing.T) {
 }
 
 func TestExecutor_Execute_ArgumentPassing(t *testing.T) {
+	t.Parallel()
 	logger := log.Default()
 	executor := NewExecutor(logger)
 
@@ -59,7 +61,7 @@ func TestExecutor_Execute_ArgumentPassing(t *testing.T) {
 
 	// Test that environment argument is passed correctly
 	// We'll execute a command but check the error contains our custom args
-	err := executor.Execute("test.yaml", []string{"sync", "--debug"}, tmpDir, "production")
+	err := executor.Execute(t.Context(), "test.yaml", []string{"sync", "--debug"}, tmpDir, "production")
 
 	// The command will likely fail, but we just want to ensure it was constructed correctly
 	// We can't easily verify the exact command without mocking, but we can check it executed
@@ -70,13 +72,14 @@ func TestExecutor_Execute_ArgumentPassing(t *testing.T) {
 }
 
 func TestExecutor_Execute_WithoutHelmfile(t *testing.T) {
+	t.Parallel()
 	logger := log.Default()
 	executor := NewExecutor(logger)
 
 	tmpDir := t.TempDir()
 
 	// Execute without specifying a helmfile (empty string)
-	err := executor.Execute("", []string{}, tmpDir, "dev")
+	err := executor.Execute(t.Context(), "", []string{}, tmpDir, "dev")
 
 	// Should attempt to execute helmfile without --file flag
 	// Will fail if helmfile isn't installed, but that's okay for this test

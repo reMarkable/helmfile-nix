@@ -1,11 +1,16 @@
 package environment
 
 import (
+	"errors"
+	"fmt"
 	"maps"
 	"strings"
 
 	"github.com/reMarkable/helmfile-nix/pkgs/transform"
 )
+
+// ErrNestedKeyNotMap is returned when a nested key is not a map.
+var ErrNestedKeyNotMap = errors.New("nested key is not a map")
 
 func MergeMaps(a, b map[string]any) map[string]any {
 	out := make(map[string]any, len(a))
@@ -25,28 +30,48 @@ func MergeMaps(a, b map[string]any) map[string]any {
 }
 
 func SetNestedMapValue(m map[string]any, dottedKey string, value string) error {
-	var err error
-	if strings.Contains(dottedKey, ".") {
-		// Nested value
-		// Split the key into parts
-		mref := m
-		keys := strings.Split(dottedKey, ".")
-		for i, key := range keys {
-			if i == len(keys)-1 {
-				if mref[key], err = transform.UnmarshalOption(value); err != nil {
-					return err
-				}
-			} else {
-				if _, ok := mref[key]; !ok {
-					mref[key] = make(map[string]any)
-				}
-				mref = mref[key].(map[string]any)
-			}
-		}
-	} else {
-		if m[dottedKey], err = transform.UnmarshalOption(value); err != nil {
+	if !strings.Contains(dottedKey, ".") {
+		val, err := transform.UnmarshalOption(value)
+		if err != nil {
 			return err
 		}
+		m[dottedKey] = val
+		return nil
+	}
+
+	return setNestedValue(m, strings.Split(dottedKey, "."), value)
+}
+
+func setNestedValue(m map[string]any, keys []string, value string) error {
+	mref := m
+	for i, key := range keys {
+		if i == len(keys)-1 {
+			val, err := transform.UnmarshalOption(value)
+			if err != nil {
+				return err
+			}
+			mref[key] = val
+			return nil
+		}
+
+		nestedMap, err := ensureNestedMap(mref, key)
+		if err != nil {
+			return err
+		}
+		mref = nestedMap
 	}
 	return nil
+}
+
+func ensureNestedMap(m map[string]any, key string) (map[string]any, error) {
+	if _, ok := m[key]; !ok {
+		newMap := make(map[string]any)
+		m[key] = newMap
+		return newMap, nil
+	}
+	nestedMap, ok := m[key].(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("%w: %s", ErrNestedKeyNotMap, key)
+	}
+	return nestedMap, nil
 }

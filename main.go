@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	_ "embed"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
+	"os/signal"
+	"syscall"
 
 	flags "github.com/jessevdk/go-flags"
 
@@ -45,6 +48,10 @@ func main() {
 		os.Exit(retcode)
 	}()
 
+	// Create context that cancels on SIGINT or SIGTERM
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	args, err := parseArgs()
 	if err != nil {
 		l.Println("Could not parse args: ", err)
@@ -53,7 +60,7 @@ func main() {
 	}
 	if opts.Version {
 		fmt.Printf("helmfile-nix version %s\n", version)
-		cmd := exec.Command("helmfile", "--version")
+		cmd := exec.CommandContext(ctx, "helmfile", "--version")
 		cmd.Stderr = os.Stderr
 		cmd.Stdout = os.Stdout
 		callErr := cmd.Run()
@@ -76,7 +83,7 @@ func main() {
 	if !seen {
 		l.Println("No command provided. Call 'render' to see the rendered helmfile.")
 		l.Println("forwarding to helmfile help:")
-		err := executor.Execute("", []string{}, ".", opts.Env)
+		err := executor.Execute(ctx, "", []string{}, ".", opts.Env)
 		if err != nil {
 			l.Println("Running helmfile failed: ", err)
 		}
@@ -107,7 +114,7 @@ func main() {
 
 	// Render helmfile
 	renderer := helmfile.NewRenderer(eval, len(opts.ShowTrace) > 0, opts.StateValuesSet, l)
-	hfContent, chartCleanup, err := renderer.Render(hfFileName, base, opts.Env, valJSON.Name())
+	hfContent, chartCleanup, err := renderer.Render(ctx, hfFileName, base, opts.Env, valJSON.Name())
 	if err != nil {
 		l.Fatalln("Failed to render helmfile: ", err)
 	}
@@ -130,7 +137,7 @@ func main() {
 		}
 	}()
 
-	callErr := executor.Execute(hfFile.Name(), args[1:], base, opts.Env)
+	callErr := executor.Execute(ctx, hfFile.Name(), args[1:], base, opts.Env)
 
 	nixchart.CleanupCharts(cleanup)
 	if callErr != nil {

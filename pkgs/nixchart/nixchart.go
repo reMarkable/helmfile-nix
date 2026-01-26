@@ -2,6 +2,7 @@
 package nixchart
 
 import (
+	"context"
 	_ "embed"
 	"encoding/json"
 	"errors"
@@ -18,41 +19,64 @@ import (
 	"github.com/reMarkable/helmfile-nix/pkgs/transform"
 )
 
+// Static errors for nixchart package.
+var (
+	ErrReleasesNotSlice     = errors.New("releases is not a slice")
+	ErrReleaseNotHash       = errors.New("release is not a hash")
+	ErrNixChartNotString    = errors.New("expected 'nixChart' to be a string")
+	ErrWriteEvalNix         = errors.New("could not write eval.nix")
+	ErrCreateTempValuesFile = errors.New("failed to create temporary file for values")
+)
+
 //go:embed eval.nix
 var eval string
 
 // RenderCharts takes a map of chart objects and a base path, renders the charts,
 // and returns a slice of file paths to the rendered charts or an error.
-func RenderCharts(obj map[string]any, base string) ([]string, error) {
+func RenderCharts(ctx context.Context, obj map[string]any, base string) ([]string, error) {
 	releasesValue := reflect.ValueOf(obj["releases"])
-	var cleanup []string
 	if releasesValue.Kind() != reflect.Slice {
-		return nil, errors.New("releases is not a slice")
+		return nil, ErrReleasesNotSlice
 	}
 
+	var cleanup []string
 	for i := 0; i < releasesValue.Len(); i++ {
-		element := releasesValue.Index(i)
-		if element.Kind() != reflect.Map {
-			chart, ok := element.Interface().(map[string]any)
-			if !ok {
-				return nil, fmt.Errorf("release at index %d is not a hash: %v", i, element)
-			}
-
-			nixChart := chart["nixChart"]
-			if nixChart != nil {
-				if renderedChart, err := evalChart(chart, base); err == nil {
-					chart["chart"] = renderedChart
-					cleanup = append(cleanup, renderedChart)
-					delete(chart, "nixChart")
-				} else {
-					return nil, fmt.Errorf("failed to evaluate chart %s: %w", chart["name"], err)
-				}
-
-				log.Printf("Rendering chart: %v\n", nixChart)
-			}
+		rendered, err := processRelease(ctx, releasesValue.Index(i), i, base)
+		if err != nil {
+			return nil, err
+		}
+		if rendered != "" {
+			cleanup = append(cleanup, rendered)
 		}
 	}
 	return cleanup, nil
+}
+
+func processRelease(ctx context.Context, element reflect.Value, index int, base string) (string, error) {
+	if element.Kind() == reflect.Map {
+		return "", nil
+	}
+
+	chart, ok := element.Interface().(map[string]any)
+	if !ok {
+		return "", fmt.Errorf("%w: release at index %d: %v", ErrReleaseNotHash, index, element)
+	}
+
+	nixChart := chart["nixChart"]
+	if nixChart == nil {
+		return "", nil
+	}
+
+	renderedChart, err := evalChart(ctx, chart, base)
+	if err != nil {
+		return "", fmt.Errorf("failed to evaluate chart %s: %w", chart["name"], err)
+	}
+
+	chart["chart"] = renderedChart
+	delete(chart, "nixChart")
+	log.Printf("Rendering chart: %v\n", nixChart)
+
+	return renderedChart, nil
 }
 
 // CleanupCharts removes the chart files specified in the cleanup slice.
@@ -93,10 +117,10 @@ func prepareChartValues(chart map[string]any) map[string]any {
 	return v
 }
 
-var evalChart = func(chart map[string]any, hfbase string) (string, error) {
+var evalChart = func(ctx context.Context, chart map[string]any, hfbase string) (string, error) {
 	nixChart, ok := chart["nixChart"].(string)
 	if !ok {
-		return "", fmt.Errorf("expected 'nixChart' to be a string, but got %T", chart["nixChart"])
+		return "", fmt.Errorf("%w, got %T", ErrNixChartNotString, chart["nixChart"])
 	}
 
 	fileName, base, err := filesystem.FindFileNameAndBase(path.Join(hfbase, nixChart), []string{"chart.nix"})
@@ -106,7 +130,7 @@ var evalChart = func(chart map[string]any, hfbase string) (string, error) {
 
 	f, err := tempfiles.WriteEvalNix(eval)
 	if err != nil {
-		return "", fmt.Errorf("could not write eval.nix: %s", err)
+		return "", fmt.Errorf("%w: %w", ErrWriteEvalNix, err)
 	}
 
 	defer func() {
@@ -117,7 +141,7 @@ var evalChart = func(chart map[string]any, hfbase string) (string, error) {
 
 	val, err := os.CreateTemp("", "val.*.json")
 	if err != nil {
-		return "", fmt.Errorf("failed to create temporary file for values: %s", err)
+		return "", fmt.Errorf("%w: %w", ErrCreateTempValuesFile, err)
 	}
 
 	defer func() {
@@ -145,7 +169,7 @@ var evalChart = func(chart map[string]any, hfbase string) (string, error) {
 	expr := fmt.Sprintf(`(import %s).render "%s" "%s" "%s"`, f.Name(), fileName, base, val.Name())
 	ne := nixeval.NewNixEval(expr)
 	cmd := ne.Args(false)
-	json, err := ne.Eval(cmd)
+	json, err := ne.Eval(ctx, cmd)
 	if err != nil {
 		log.Fatalln("Failed to evaluate chart:", chart, " : ", err)
 	}
@@ -158,7 +182,7 @@ var evalChart = func(chart map[string]any, hfbase string) (string, error) {
 	if err != nil {
 		log.Fatalln("Failed to create temporary directory for chart:", chartDir, " : ", err)
 	}
-	if err = os.WriteFile(chartDir+"/resources.yaml", yaml, 0o644); err != nil {
+	if err = os.WriteFile(chartDir+"/resources.yaml", yaml, 0o600); err != nil {
 		log.Fatalln("Failed to write resources.yaml for chart:", chart, " : ", err)
 	}
 

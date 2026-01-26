@@ -3,6 +3,7 @@ package nixeval
 
 import (
 	"bytes"
+	"context"
 	"log"
 	"os"
 	"os/exec"
@@ -17,8 +18,8 @@ func NewNixEval(expr string) *NixEval {
 	return &NixEval{expr: expr}
 }
 
-func (n *NixEval) Eval(cmd []string) ([]byte, error) {
-	eval := exec.Command("nix", cmd...)
+func (n *NixEval) Eval(ctx context.Context, cmd []string) ([]byte, error) {
+	eval := exec.CommandContext(ctx, "nix", cmd...)
 	log.Println("Running nix", strings.Join(cmd, " "))
 	eval.Stderr = os.Stderr
 	var out bytes.Buffer

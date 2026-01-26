@@ -1,6 +1,7 @@
 package helmfile
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -32,7 +33,7 @@ func NewRenderer(evalNix string, showTrace bool, stateValuesSet []string, logger
 
 // Render renders the helmfile using Nix evaluation.
 // Returns the rendered YAML content and a slice of temporary chart directories that need cleanup.
-func (r *Renderer) Render(fileName, base, env, valuesJSONPath string) ([]byte, []string, error) {
+func (r *Renderer) Render(ctx context.Context, fileName, base, env, valuesJSONPath string) ([]byte, []string, error) {
 	f, err := tempfiles.WriteEvalNix(r.evalNix)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not write eval.nix: %w", err)
@@ -47,7 +48,7 @@ func (r *Renderer) Render(fileName, base, env, valuesJSONPath string) ([]byte, [
 	expr := fmt.Sprintf(`(import %s).render "%s" "%s" "%s" "%s"`, f.Name(), fileName, base, env, valuesJSONPath)
 	ne := nixeval.NewNixEval(expr)
 	cmd := ne.Args(r.showTrace)
-	json, err := ne.Eval(cmd)
+	json, err := ne.Eval(ctx, cmd)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to eval nix: %w\n%s", err, json)
 	}
@@ -56,9 +57,13 @@ func (r *Renderer) Render(fileName, base, env, valuesJSONPath string) ([]byte, [
 	yaml, err := transform.JSONToYAMLs(json, func(v any) {
 		if reflect.TypeOf(v).Kind() == reflect.Map {
 			// Check if map has a list of releases
-			if _, ok := v.(map[string]any)["releases"]; ok {
+			vMap, ok := v.(map[string]any)
+			if !ok {
+				return
+			}
+			if _, ok := vMap["releases"]; ok {
 				var err error
-				cleanup, err = nixchart.RenderCharts(v.(map[string]any), base)
+				cleanup, err = nixchart.RenderCharts(ctx, vMap, base)
 				if err != nil {
 					r.logger.Fatalf("Failed to render charts: %s", err)
 				}

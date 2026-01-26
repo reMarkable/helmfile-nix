@@ -6,6 +6,7 @@ import (
 )
 
 func TestUnmarshalOption(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		input    string
 		expected any
@@ -29,6 +30,7 @@ func TestUnmarshalOption(t *testing.T) {
 }
 
 func TestJSONToYAMLs_Success(t *testing.T) {
+	t.Parallel()
 	json := []byte(`[{"key": "value"}, {"foo": "bar"}]`)
 
 	yaml, err := JSONToYAMLs(json, func(v any) {})
@@ -43,6 +45,7 @@ func TestJSONToYAMLs_Success(t *testing.T) {
 }
 
 func TestJSONToYAMLs_EmptyArray(t *testing.T) {
+	t.Parallel()
 	json := []byte(`[]`)
 
 	yaml, err := JSONToYAMLs(json, func(v any) {})
@@ -56,6 +59,7 @@ func TestJSONToYAMLs_EmptyArray(t *testing.T) {
 }
 
 func TestJSONToYAMLs_SingleItem(t *testing.T) {
+	t.Parallel()
 	json := []byte(`[{"test": "single"}]`)
 
 	yaml, err := JSONToYAMLs(json, func(v any) {})
@@ -70,6 +74,7 @@ func TestJSONToYAMLs_SingleItem(t *testing.T) {
 }
 
 func TestJSONToYAMLs_WithPreprocessing(t *testing.T) {
+	t.Parallel()
 	json := []byte(`[{"key": "value"}]`)
 
 	preprocessed := false
@@ -96,6 +101,7 @@ func TestJSONToYAMLs_WithPreprocessing(t *testing.T) {
 }
 
 func TestJSONToYAMLs_InvalidJSON(t *testing.T) {
+	t.Parallel()
 	json := []byte(`{invalid json}`)
 
 	_, err := JSONToYAMLs(json, func(v any) {})
@@ -105,6 +111,7 @@ func TestJSONToYAMLs_InvalidJSON(t *testing.T) {
 }
 
 func TestJSONToYAMLs_ComplexStructure(t *testing.T) {
+	t.Parallel()
 	json := []byte(`[
 		{"name": "release1", "values": {"key": "val1"}},
 		{"name": "release2", "values": {"key": "val2"}}

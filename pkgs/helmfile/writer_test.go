@@ -8,6 +8,7 @@ import (
 )
 
 func TestWriter_WriteYAML_Success(t *testing.T) {
+	t.Parallel()
 	writer := NewWriter()
 	tmpDir := t.TempDir()
 
@@ -54,6 +55,7 @@ func TestWriter_WriteYAML_Success(t *testing.T) {
 }
 
 func TestWriter_WriteYAML_GotmplExtension(t *testing.T) {
+	t.Parallel()
 	writer := NewWriter()
 	tmpDir := t.TempDir()
 
@@ -76,6 +78,7 @@ func TestWriter_WriteYAML_GotmplExtension(t *testing.T) {
 }
 
 func TestWriter_WriteYAML_InvalidDirectory(t *testing.T) {
+	t.Parallel()
 	writer := NewWriter()
 
 	content := []byte("test: yaml\n")
@@ -89,6 +92,7 @@ func TestWriter_WriteYAML_InvalidDirectory(t *testing.T) {
 }
 
 func TestWriter_WriteYAML_EmptyContent(t *testing.T) {
+	t.Parallel()
 	writer := NewWriter()
 	tmpDir := t.TempDir()
 
@@ -116,6 +120,7 @@ func TestWriter_WriteYAML_EmptyContent(t *testing.T) {
 }
 
 func TestWriter_WriteYAML_LargeContent(t *testing.T) {
+	t.Parallel()
 	writer := NewWriter()
 	tmpDir := t.TempDir()
 

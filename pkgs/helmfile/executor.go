@@ -2,6 +2,7 @@
 package helmfile
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -22,7 +23,7 @@ func NewExecutor(logger *log.Logger) *Executor {
 }
 
 // Execute calls helmfile with the given arguments.
-func (e *Executor) Execute(hfFile string, args []string, base string, env string) error {
+func (e *Executor) Execute(ctx context.Context, hfFile string, args []string, base string, env string) error {
 	baseArgs := []string{"-e", env}
 	if len(hfFile) > 0 {
 		baseArgs = append(baseArgs, "--file", hfFile)
@@ -32,9 +33,11 @@ func (e *Executor) Execute(hfFile string, args []string, base string, env string
 		return fmt.Errorf("could not change directory to %s: %w", base, err)
 	}
 
-	finalArgs := append(baseArgs, args...)
+	finalArgs := make([]string, 0, len(baseArgs)+len(args))
+	finalArgs = append(finalArgs, baseArgs...)
+	finalArgs = append(finalArgs, args...)
 	fmt.Printf("calling helmfile %s\n", strings.Join(finalArgs[1:], " "))
-	cmd := exec.Command("helmfile", finalArgs...)
+	cmd := exec.CommandContext(ctx, "helmfile", finalArgs...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 

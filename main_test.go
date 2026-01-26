@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/andreyvit/diff"
+
 	"github.com/reMarkable/helmfile-nix/pkgs/environment"
 	"github.com/reMarkable/helmfile-nix/pkgs/helmfile"
 )
@@ -46,6 +47,7 @@ releases:
 `
 
 func TestRender(t *testing.T) {
+	t.Parallel()
 	logger := log.Default()
 	valuesWriter := environment.NewValuesWriter(logger)
 	renderer := helmfile.NewRenderer(eval, false, []string{}, logger)
@@ -60,7 +62,7 @@ func TestRender(t *testing.T) {
 		}
 	}()
 
-	hf, _, err := renderer.Render("helmfile.nix", cwd+"/testData/helm", "dev", valJSON.Name())
+	hf, _, err := renderer.Render(t.Context(), "helmfile.nix", cwd+"/testData/helm", "dev", valJSON.Name())
 	if err != nil {
 		t.Error("Failed to parse helmfile: ", err)
 	}
@@ -70,6 +72,7 @@ func TestRender(t *testing.T) {
 }
 
 func TestRenderTemplated(t *testing.T) {
+	t.Parallel()
 	logger := log.Default()
 	valuesWriter := environment.NewValuesWriter(logger)
 	renderer := helmfile.NewRenderer(eval, false, []string{}, logger)
@@ -84,7 +87,7 @@ func TestRenderTemplated(t *testing.T) {
 		}
 	}()
 
-	hf, _, err := renderer.Render("helmfile.gotmpl.nix", cwd+"/testData/helm-templated", "dev", valJSON.Name())
+	hf, _, err := renderer.Render(t.Context(), "helmfile.gotmpl.nix", cwd+"/testData/helm-templated", "dev", valJSON.Name())
 	if err != nil {
 		t.Error("Failed to parse helmfile: ", err)
 	}
@@ -94,6 +97,7 @@ func TestRenderTemplated(t *testing.T) {
 }
 
 func TestTemplate(t *testing.T) {
+	t.Parallel()
 	logger := log.Default()
 	writer := helmfile.NewWriter()
 	executor := helmfile.NewExecutor(logger)
@@ -108,7 +112,7 @@ func TestTemplate(t *testing.T) {
 		}
 	}()
 
-	err := executor.Execute(hfFile.Name(), []string{"lint"}, cwd+"/testData/helm", "dev")
+	err := executor.Execute(t.Context(), hfFile.Name(), []string{"lint"}, cwd+"/testData/helm", "dev")
 	if err != nil {
 		t.Error("Failed to call helmfile: ", err)
 	}
@@ -128,6 +132,7 @@ func TestTemplate(t *testing.T) {
 var vals = `{"bad":123,"bar":"true","foo":{"bad":"hello","bar":false,"baz":true,"foo":true}}`
 
 func TestWriteValJson(t *testing.T) {
+	t.Parallel()
 	logger := log.Default()
 	valuesWriter := environment.NewValuesWriter(logger)
 

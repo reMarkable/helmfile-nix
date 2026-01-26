@@ -2,10 +2,14 @@
 package filesystem
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 )
+
+// ErrFileNotFound is returned when the expected file is not found.
+var ErrFileNotFound = errors.New("expected file not found")
 
 // FindFileNameAndBase - find the filename and base directory of the helmfile.nix
 func FindFileNameAndBase(input string, wanted []string) (string, string, error) {
@@ -44,5 +48,5 @@ func FindFileNameAndBase(input string, wanted []string) (string, string, error) 
 		}
 	}
 
-	return "", "", fmt.Errorf("expected %v,  found : %s ", wanted, path)
+	return "", "", fmt.Errorf("%w: expected %v, found: %s", ErrFileNotFound, wanted, path)
 }

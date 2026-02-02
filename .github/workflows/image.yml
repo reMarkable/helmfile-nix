@@ -33,7 +33,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@ed95091677497158a9ff38b314264cd965388d5e
+        uses: docker/metadata-action@a60f0f62b5c12316066c8db464bfb2faafd7907b
         with:
           images: ${{ env.REGISTRY }}/${{ steps.lc_repo.outputs.out}}
       - name: Build and push Docker image

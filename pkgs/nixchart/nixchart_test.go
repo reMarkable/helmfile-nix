@@ -1,17 +1,19 @@
 package nixchart
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
 )
 
 func TestRenderCharts_Success(t *testing.T) {
+	t.Parallel()
 	origEvalChart := evalChart
-	evalChart = func(chart map[string]any, base string) (string, error) {
+	evalChart = func(_ context.Context, chart map[string]any, base string) (string, error) {
 		tmpDir := t.TempDir()
 		resourcesPath := filepath.Join(tmpDir, "resources.yaml")
-		if err := os.WriteFile(resourcesPath, []byte("mocked: true\n"), 0o644); err != nil {
+		if err := os.WriteFile(resourcesPath, []byte("mocked: true\n"), 0o600); err != nil {
 			return "", err
 		}
 
@@ -33,7 +35,7 @@ func TestRenderCharts_Success(t *testing.T) {
 			},
 		},
 	}
-	cleanup, err := RenderCharts(obj, ".")
+	cleanup, err := RenderCharts(t.Context(), obj, ".")
 	if err != nil {
 		t.Fatalf("RenderCharts failed: %v", err)
 	}
@@ -52,6 +54,7 @@ func TestRenderCharts_Success(t *testing.T) {
 }
 
 func TestPrepareChartValues(t *testing.T) {
+	t.Parallel()
 	// Test with a map[string]any
 	chartMap := map[string]any{
 		"values": map[string]any{
@@ -101,4 +104,37 @@ func TestPrepareChartValues(t *testing.T) {
 	if !ok || releaseMap["values"] != nil {
 		t.Errorf("Expected release metadata without values, got: %#v", releaseMap)
 	}
+}
+
+func TestCleanupCharts_NonExistent(t *testing.T) {
+	t.Parallel()
+	// Test that CleanupCharts handles non-existent directories gracefully
+	cleanup := []string{"/nonexistent/directory/path"}
+
+	// Should not panic, just log error
+	CleanupCharts(cleanup)
+}
+
+func TestCleanupCharts_Mixed(t *testing.T) {
+	t.Parallel()
+	// Create a real directory
+	tmpDir := t.TempDir()
+
+	// Mix of existing and non-existent directories
+	cleanup := []string{tmpDir, "/nonexistent/path"}
+
+	// Should clean up what it can without panicking
+	CleanupCharts(cleanup)
+
+	// Verify the temp directory was removed
+	if _, err := os.Stat(tmpDir); !os.IsNotExist(err) {
+		t.Error("CleanupCharts() should have removed temp directory")
+	}
+}
+
+func TestCleanupCharts_Empty(t *testing.T) {
+	t.Parallel()
+	// Test with empty cleanup list
+	CleanupCharts([]string{})
+	// Should not panic
 }

@@ -1,4 +1,4 @@
-FROM  golang:1.25.7-trixie AS builder
+FROM  golang:1.26.0-trixie AS builder
 
 ARG BUILDPLATFORM
 ARG TARGETOS

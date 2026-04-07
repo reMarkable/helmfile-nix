@@ -21,7 +21,7 @@ jobs:
       - id: lc_repo
         run: python3 -c'print("out=${{github.repository}}".lower())' >> "$GITHUB_OUTPUT"
       - name: Log in to the Container registry
-        uses: docker/login-action@da5b89b92c1be57a07eeed1334a0728b94145654
+        uses: docker/login-action@ba754150c9dbbaa912ae0ac3cfba43f84195cef2
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}

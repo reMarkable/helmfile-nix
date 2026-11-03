@@ -36,7 +36,7 @@ func (e *Executor) Execute(ctx context.Context, hfFile string, args []string, ba
 	finalArgs := make([]string, 0, len(baseArgs)+len(args))
 	finalArgs = append(finalArgs, baseArgs...)
 	finalArgs = append(finalArgs, args...)
-	fmt.Printf("calling helmfile %s\n", strings.Join(finalArgs[1:], " "))
+	fmt.Fprintf(os.Stderr, "calling helmfile %s\n", strings.Join(finalArgs[1:], " "))
 	cmd := exec.CommandContext(ctx, "helmfile", finalArgs...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
